@@ -67,30 +67,32 @@ jobs:
           ⚠️ Ne pas éditer ce dépôt manuellement : toute modification sera écrasée au prochain déploiement.
           EOF
 
-      - name: Push deploy_out to TestNRT-deploy
+      - name: Push deploy_out to TestNRT-deploy (deploy branch, no force)
         env:
           DEPLOY_PAT: ${{ secrets.HOSTINGER_DEPLOY_PAT }}
+          DEPLOY_REPO: ${{ github.repository_owner }}/TestNRT-deploy
         run: |
           if [ -z "$DEPLOY_PAT" ]; then
             echo "Missing secret HOSTINGER_DEPLOY_PAT"
             exit 1
           fi
 
-          cd deploy_out
-          git init
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git remote add origin "https://x-access-token:${DEPLOY_PAT}@github.com/${DEPLOY_REPO}.git"
+          rm -rf deploy_repo
+          git clone "https://x-access-token:${DEPLOY_PAT}@github.com/${DEPLOY_REPO}.git" deploy_repo
+          cd deploy_repo
 
-          # Keep deployment history linear on a dedicated deploy branch.
-          if git ls-remote --exit-code --heads origin "$DEPLOY_BRANCH" >/dev/null 2>&1; then
-            git fetch origin "$DEPLOY_BRANCH"
-            git checkout -B "$DEPLOY_BRANCH" "origin/$DEPLOY_BRANCH"
-            git pull --rebase origin "$DEPLOY_BRANCH"
-          else
-            git checkout -B "$DEPLOY_BRANCH"
-          fi
+          # Create/switch to deploy branch
+          git checkout -B deploy
+
+          # Replace repo contents with deploy_out
+          rm -rf ./*
+          rm -rf ./.github || true
+
+          cp -a ../deploy_out/. ./
 
           git add -A
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
           git commit -m "Deploy from ${GITHUB_REPOSITORY}@${GITHUB_SHA}" || echo "No changes to commit"
-          git push origin "$DEPLOY_BRANCH"
+          git push origin deploy
