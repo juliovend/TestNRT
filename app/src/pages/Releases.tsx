@@ -1,0 +1,38 @@
+import { Button, List, ListItem, ListItemText, Stack, TextField, Typography } from '@mui/material';
+import { useState } from 'react';
+import { apiFetch } from '../api/client';
+import type { Release } from '../types';
+
+export default function Releases() {
+  const [projectId, setProjectId] = useState('1');
+  const [version, setVersion] = useState('');
+  const [items, setItems] = useState<Release[]>([]);
+
+  const load = async () => {
+    const data = await apiFetch<{ releases: Release[] }>(`/releases?project_id=${projectId}`);
+    setItems(data.releases);
+  };
+
+  const create = async () => {
+    await apiFetch('/releases', { method: 'POST', bodyJson: { project_id: Number(projectId), version } });
+    setVersion('');
+    await load();
+  };
+
+  return (
+    <Stack spacing={2}>
+      <Typography variant="h5">Releases</Typography>
+      <Stack direction="row" spacing={2}>
+        <TextField label="Project ID" value={projectId} onChange={(e) => setProjectId(e.target.value)} />
+        <Button onClick={load}>Charger</Button>
+      </Stack>
+      <Stack direction="row" spacing={2}>
+        <TextField label="Version" value={version} onChange={(e) => setVersion(e.target.value)} />
+        <Button variant="contained" onClick={create}>Créer release</Button>
+      </Stack>
+      <List>
+        {items.map((r) => <ListItem key={r.id}><ListItemText primary={r.version} secondary={r.notes || ''} /></ListItem>)}
+      </List>
+    </Stack>
+  );
+}
