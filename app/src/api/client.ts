@@ -1,15 +1,45 @@
-export const API_BASE_URL = '/api';
+export const API_BASE_URL = '/api/index.php';
+
+export function apiRoute(route: string, params?: Record<string, string | number | boolean | null | undefined>) {
+  const query = new URLSearchParams({ route });
+
+  if (params) {
+    Object.entries(params).forEach(([key, value]) => {
+      if (value === null || value === undefined) {
+        return;
+      }
+      query.set(key, String(value));
+    });
+  }
+
+  return `${API_BASE_URL}?${query.toString()}`;
+}
 
 export const API_ROUTES = {
-  projects: `${API_BASE_URL}/projects/`,
-  releases: `${API_BASE_URL}/releases/`,
-  testcases: `${API_BASE_URL}/testcases/`,
-  runs: `${API_BASE_URL}/runs/`,
+  projects: {
+    list: apiRoute('projects.list'),
+    create: apiRoute('projects.create'),
+  },
+  releases: {
+    list: (projectId: string | number) => apiRoute('releases.list', { project_id: projectId }),
+    create: apiRoute('releases.create'),
+  },
+  testcases: {
+    list: (projectId: string | number) => apiRoute('testcases.list', { project_id: projectId }),
+    create: apiRoute('testcases.create'),
+    update: apiRoute('testcases.update'),
+  },
+  runs: {
+    create: apiRoute('runs.create'),
+    get: (runId: string | number) => apiRoute('runs.get', { run_id: runId }),
+    setResult: apiRoute('runs.set_result'),
+  },
   auth: {
-    register: `${API_BASE_URL}/auth/register/`,
-    login: `${API_BASE_URL}/auth/login/`,
-    me: `${API_BASE_URL}/auth/me/`,
-    logout: `${API_BASE_URL}/auth/logout/`,
+    register: apiRoute('auth.register'),
+    login: apiRoute('auth.login'),
+    me: apiRoute('auth.me'),
+    logout: apiRoute('auth.logout'),
+    googleStart: apiRoute('auth.google_start'),
   },
 } as const;
 
@@ -40,7 +70,7 @@ export async function apiFetch<T>(url: string, options: ApiOptions = {}): Promis
   }
 
   if (!response.ok) {
-    const message = payload?.message || payload?.error || `Erreur API (${response.status})`;
+    const message = payload?.message || payload?.error || response.statusText || `Erreur API (${response.status})`;
     throw new Error(message);
   }
 

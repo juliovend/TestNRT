@@ -1,6 +1,6 @@
 import { Button, MenuItem, Paper, Stack, TextField, Typography } from '@mui/material';
 import { useState } from 'react';
-import { apiFetch } from '../api/client';
+import { API_ROUTES, apiFetch } from '../api/client';
 
 export default function RunExecute() {
   const [runId, setRunId] = useState('1');
@@ -10,12 +10,12 @@ export default function RunExecute() {
   const [details, setDetails] = useState<any>(null);
 
   const load = async () => {
-    const data = await apiFetch(`/runs/get?id=${runId}`);
+    const data = await apiFetch(API_ROUTES.runs.get(runId));
     setDetails(data);
   };
 
   const saveResult = async () => {
-    await apiFetch('/runs/set_result', {
+    await apiFetch(API_ROUTES.runs.setResult, {
       method: 'POST',
       bodyJson: { test_run_case_id: Number(testRunCaseId), status, comment },
     });

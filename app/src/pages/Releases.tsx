@@ -9,12 +9,12 @@ export default function Releases() {
   const [items, setItems] = useState<Release[]>([]);
 
   const load = async () => {
-    const data = await apiFetch<{ releases: Release[] }>(`${API_ROUTES.releases}?project_id=${projectId}`);
+    const data = await apiFetch<{ releases: Release[] }>(API_ROUTES.releases.list(projectId));
     setItems(data.releases);
   };
 
   const create = async () => {
-    await apiFetch(API_ROUTES.releases, { method: 'POST', bodyJson: { project_id: Number(projectId), version } });
+    await apiFetch(API_ROUTES.releases.create, { method: 'POST', bodyJson: { project_id: Number(projectId), version } });
     setVersion('');
     await load();
   };

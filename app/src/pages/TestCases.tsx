@@ -10,12 +10,12 @@ export default function TestCases() {
   const [items, setItems] = useState<TestCase[]>([]);
 
   const load = async () => {
-    const data = await apiFetch<{ test_cases: TestCase[] }>(`${API_ROUTES.testcases}?project_id=${projectId}`);
+    const data = await apiFetch<{ test_cases: TestCase[] }>(API_ROUTES.testcases.list(projectId));
     setItems(data.test_cases);
   };
 
   const create = async () => {
-    await apiFetch(API_ROUTES.testcases, {
+    await apiFetch(API_ROUTES.testcases.create, {
       method: 'POST',
       bodyJson: { project_id: Number(projectId), title, steps, expected_result: '' },
     });
