@@ -9,8 +9,6 @@ $routes = [
     'auth.login' => ['method' => 'POST', 'file' => 'auth/login.php'],
     'auth.logout' => ['method' => 'POST', 'file' => 'auth/logout.php'],
     'auth.me' => ['method' => 'GET', 'file' => 'auth/me.php'],
-    'auth.google_start' => ['method' => 'GET', 'file' => 'auth/google_start.php'],
-    'auth.google_callback' => ['method' => 'GET', 'file' => 'auth/google_callback.php'],
     'projects.list' => ['method' => 'GET', 'file' => 'projects/list.php'],
     'projects.create' => ['method' => 'POST', 'file' => 'projects/create.php'],
     'releases.list' => ['method' => 'GET', 'file' => 'releases/list.php'],
