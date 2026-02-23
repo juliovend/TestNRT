@@ -1,6 +1,6 @@
 import { Button, List, ListItem, ListItemText, Stack, TextField, Typography } from '@mui/material';
 import { useState } from 'react';
-import { apiFetch } from '../api/client';
+import { API_ROUTES, apiFetch } from '../api/client';
 import type { TestCase } from '../types';
 
 export default function TestCases() {
@@ -10,12 +10,12 @@ export default function TestCases() {
   const [items, setItems] = useState<TestCase[]>([]);
 
   const load = async () => {
-    const data = await apiFetch<{ test_cases: TestCase[] }>(`/test_cases?project_id=${projectId}`);
+    const data = await apiFetch<{ test_cases: TestCase[] }>(`${API_ROUTES.testcases}?project_id=${projectId}`);
     setItems(data.test_cases);
   };
 
   const create = async () => {
-    await apiFetch('/test_cases', {
+    await apiFetch(API_ROUTES.testcases, {
       method: 'POST',
       bodyJson: { project_id: Number(projectId), title, steps, expected_result: '' },
     });

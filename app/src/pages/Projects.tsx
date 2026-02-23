@@ -1,6 +1,6 @@
 import { Button, List, ListItem, ListItemText, Paper, Stack, TextField, Typography } from '@mui/material';
 import { useEffect, useState } from 'react';
-import { apiFetch } from '../api/client';
+import { API_ROUTES, apiFetch } from '../api/client';
 import type { Project } from '../types';
 
 export default function Projects() {
@@ -8,7 +8,7 @@ export default function Projects() {
   const [name, setName] = useState('');
 
   const load = async () => {
-    const data = await apiFetch<{ projects: Project[] }>('/projects');
+    const data = await apiFetch<{ projects: Project[] }>(API_ROUTES.projects);
     setItems(data.projects);
   };
 
@@ -17,7 +17,7 @@ export default function Projects() {
   }, []);
 
   const create = async () => {
-    await apiFetch('/projects', { method: 'POST', bodyJson: { name } });
+    await apiFetch(API_ROUTES.projects, { method: 'POST', bodyJson: { name } });
     setName('');
     await load();
   };

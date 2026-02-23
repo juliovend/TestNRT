@@ -1,24 +1,24 @@
-import { apiFetch } from './client';
+import { API_ROUTES, apiFetch } from './client';
 import type { User } from '../types';
 
 export function login(email: string, password: string) {
-  return apiFetch<{ user: User }>('/auth/login', {
+  return apiFetch<{ user: User }>(API_ROUTES.auth.login, {
     method: 'POST',
     bodyJson: { email, password },
   });
 }
 
 export function register(email: string, password: string, name: string) {
-  return apiFetch<{ user: User }>('/auth/register', {
+  return apiFetch<{ user: User }>(API_ROUTES.auth.register, {
     method: 'POST',
     bodyJson: { email, password, name },
   });
 }
 
 export function me() {
-  return apiFetch<{ user: User | null }>('/auth/me');
+  return apiFetch<{ user: User | null }>(API_ROUTES.auth.me);
 }
 
 export function logout() {
-  return apiFetch<{ success: boolean }>('/auth/logout', { method: 'POST' });
+  return apiFetch<{ success: boolean }>(API_ROUTES.auth.logout, { method: 'POST' });
 }

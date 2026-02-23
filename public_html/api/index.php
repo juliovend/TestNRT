@@ -8,6 +8,13 @@ if (str_starts_with($path, $base)) {
     $path = substr($path, strlen($base));
 }
 $path = '/' . ltrim($path, '/');
+if ($path !== '/') {
+    $path = rtrim($path, '/');
+}
+
+if (str_starts_with($path, '/testcases')) {
+    $path = preg_replace('#^/testcases#', '/test_cases', $path) ?: $path;
+}
 
 $routes = [
     'POST /auth/register' => 'auth/register.php',
