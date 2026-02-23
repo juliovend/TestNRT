@@ -10,7 +10,7 @@ permissions:
 
 env:
   DEPLOY_REPO: ${{ github.repository_owner }}/TestNRT-deploy
-  DEPLOY_BRANCH: main
+  DEPLOY_BRANCH: deploy
 
 jobs:
   build-and-sync:
@@ -77,10 +77,20 @@ jobs:
           fi
 
           cd deploy_out
-          git init -b "$DEPLOY_BRANCH"
+          git init
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git remote add origin "https://x-access-token:${DEPLOY_PAT}@github.com/${DEPLOY_REPO}.git"
+
+          # Keep deployment history linear on a dedicated deploy branch.
+          if git ls-remote --exit-code --heads origin "$DEPLOY_BRANCH" >/dev/null 2>&1; then
+            git fetch origin "$DEPLOY_BRANCH"
+            git checkout -B "$DEPLOY_BRANCH" "origin/$DEPLOY_BRANCH"
+            git pull --rebase origin "$DEPLOY_BRANCH"
+          else
+            git checkout -B "$DEPLOY_BRANCH"
+          fi
+
           git add -A
           git commit -m "Deploy from ${GITHUB_REPOSITORY}@${GITHUB_SHA}" || echo "No changes to commit"
-          git remote add origin "https://x-access-token:${DEPLOY_PAT}@github.com/${DEPLOY_REPO}.git"
-          git push --force origin "$DEPLOY_BRANCH"
+          git push origin "$DEPLOY_BRANCH"
