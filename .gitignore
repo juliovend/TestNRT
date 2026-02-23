@@ -1,0 +1,13 @@
+# Node
+app/node_modules/
+app/dist/
+
+# PHP secrets
+public_html/api/config.php
+
+# Env / editor
+.env
+*.log
+.DS_Store
+.vscode/
+.idea/
