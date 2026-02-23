@@ -47,7 +47,13 @@ jobs:
           # 3) Root .htaccess
           cp public_html/.htaccess deploy_out/.htaccess
 
-          # Auto-generated README for deploy repository
+          # 4) Marker files to confirm what is deployed
+          echo "source_repo=TestNRT" > deploy_out/DEPLOY_MARKER.txt
+          echo "commit_sha=${GITHUB_SHA}" >> deploy_out/DEPLOY_MARKER.txt
+          echo "deployed_at_utc=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> deploy_out/DEPLOY_MARKER.txt
+          echo "commit_sha=${GITHUB_SHA}" > deploy_out/api/DEPLOY_MARKER.txt
+
+          # 5) Auto-generated README for deploy repository
           cat > deploy_out/README.md <<'EOF'
           # TestNRT-deploy
 
