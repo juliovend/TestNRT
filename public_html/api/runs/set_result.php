@@ -4,7 +4,7 @@ $body = read_json_body();
 $testRunCaseId = (int) ($body['test_run_case_id'] ?? 0);
 $status = strtoupper(trim($body['status'] ?? 'NOT_RUN'));
 $comment = trim($body['comment'] ?? '');
-$allowed = ['PASS', 'FAIL', 'BLOCKED', 'NOT_RUN'];
+$allowed = ['PASS', 'FAIL', 'BLOCKED', 'SKIPPED', 'NOT_RUN'];
 if ($testRunCaseId <= 0 || !in_array($status, $allowed, true)) {
     json_response(['message' => 'test_run_case_id ou status invalide'], 422);
 }
