@@ -1,7 +1,8 @@
-RewriteEngine On
-
-RewriteCond %{REQUEST_FILENAME} -f [OR]
-RewriteCond %{REQUEST_FILENAME} -d
-RewriteRule ^ - [L]
-
-RewriteRule ^ index.php [QSA,L]
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /api/
+  DirectorySlash Off
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteRule ^ index.php [L,QSA]
+</IfModule>
+Options -Indexes
