@@ -2,7 +2,7 @@
 require __DIR__ . '/bootstrap.php';
 
 $method = $_SERVER['REQUEST_METHOD'];
-$route = trim((string) ($_GET['route'] ?? ''));
+$route = $_GET['route'] ?? null;
 
 $routes = [
     'auth.register' => ['method' => 'POST', 'file' => 'auth/register.php'],
@@ -23,8 +23,36 @@ $routes = [
     'runs.set_result' => ['method' => 'POST', 'file' => 'runs/set_result.php'],
 ];
 
+if ($route !== null) {
+    $route = trim((string) $route);
+    if ($route === '') {
+        json_response(['message' => 'Paramètre "route" vide'], 400);
+    }
+
+    $path = '/' . trim(str_replace('.', '/', $route), '/');
+} else {
+    $path = trim((string) ($_SERVER['PATH_INFO'] ?? ''));
+
+    if ($path === '') {
+        $requestPath = (string) (parse_url((string) ($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH) ?? '');
+        $scriptName = str_replace('\\', '/', (string) ($_SERVER['SCRIPT_NAME'] ?? ''));
+        $scriptDir = rtrim((string) dirname($scriptName), '/');
+
+        if ($scriptName !== '' && str_starts_with($requestPath, $scriptName)) {
+            $requestPath = (string) substr($requestPath, strlen($scriptName));
+        } elseif ($scriptDir !== '' && $scriptDir !== '.' && str_starts_with($requestPath, $scriptDir . '/')) {
+            $requestPath = (string) substr($requestPath, strlen($scriptDir));
+        }
+
+        $path = $requestPath;
+    }
+
+    $path = '/' . trim($path, '/');
+    $route = str_replace('/', '.', trim($path, '/'));
+}
+
 if ($route === '' || !isset($routes[$route])) {
-    json_response(['message' => 'Endpoint non trouvé', 'method' => $method, 'route' => $route], 404);
+    json_response(['message' => 'Endpoint non trouvé', 'method' => $method, 'route' => $route, 'path' => $path], 404);
 }
 
 $endpoint = $routes[$route];
