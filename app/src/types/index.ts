@@ -39,6 +39,7 @@ export interface TestRun {
     pass: number;
     fail: number;
     blocked: number;
+    skipped: number;
     not_run: number;
   };
 }

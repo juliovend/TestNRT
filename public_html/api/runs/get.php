@@ -22,7 +22,7 @@ ORDER BY trc.id');
 $resultsStmt->execute([$runId]);
 $results = $resultsStmt->fetchAll();
 
-$summary = ['total' => 0, 'pass' => 0, 'fail' => 0, 'blocked' => 0, 'not_run' => 0];
+$summary = ['total' => 0, 'pass' => 0, 'fail' => 0, 'blocked' => 0, 'skipped' => 0, 'not_run' => 0];
 foreach ($results as $row) {
     $summary['total']++;
     $status = strtolower($row['status']);
