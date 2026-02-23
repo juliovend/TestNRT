@@ -67,7 +67,7 @@ jobs:
           ⚠️ Ne pas éditer ce dépôt manuellement : toute modification sera écrasée au prochain déploiement.
           EOF
 
-      - name: Push deploy_out to TestNRT-deploy (deploy branch, no force)
+      - name: Push deploy_out to TestNRT-deploy (deploy branch)
         env:
           DEPLOY_PAT: ${{ secrets.HOSTINGER_DEPLOY_PAT }}
           DEPLOY_REPO: ${{ github.repository_owner }}/TestNRT-deploy
@@ -81,18 +81,28 @@ jobs:
           git clone "https://x-access-token:${DEPLOY_PAT}@github.com/${DEPLOY_REPO}.git" deploy_repo
           cd deploy_repo
 
-          # Create/switch to deploy branch
-          git checkout -B deploy
-
-          # Replace repo contents with deploy_out
-          rm -rf ./*
-          rm -rf ./.github || true
-
-          cp -a ../deploy_out/. ./
-
-          git add -A
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
+          # Make sure we have remote branches
+          git fetch origin
+
+          # Checkout deploy branch from origin if it exists, otherwise create it
+          if git show-ref --verify --quiet refs/remotes/origin/deploy; then
+            git checkout deploy
+            git reset --hard origin/deploy
+          else
+            git checkout -b deploy
+          fi
+
+          # Replace repo contents with deploy_out
+          rm -rf ./*
+          cp -a ../deploy_out/. ./
+
+          git add -A
           git commit -m "Deploy from ${GITHUB_REPOSITORY}@${GITHUB_SHA}" || echo "No changes to commit"
+
+          # Rebase on latest remote deploy just in case (rare race condition)
+          git pull --rebase origin deploy || true
+
           git push origin deploy
