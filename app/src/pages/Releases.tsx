@@ -1,6 +1,6 @@
 import { Button, List, ListItem, ListItemText, Stack, TextField, Typography } from '@mui/material';
 import { useState } from 'react';
-import { apiFetch } from '../api/client';
+import { API_ROUTES, apiFetch } from '../api/client';
 import type { Release } from '../types';
 
 export default function Releases() {
@@ -9,12 +9,12 @@ export default function Releases() {
   const [items, setItems] = useState<Release[]>([]);
 
   const load = async () => {
-    const data = await apiFetch<{ releases: Release[] }>(`/releases?project_id=${projectId}`);
+    const data = await apiFetch<{ releases: Release[] }>(`${API_ROUTES.releases}?project_id=${projectId}`);
     setItems(data.releases);
   };
 
   const create = async () => {
-    await apiFetch('/releases', { method: 'POST', bodyJson: { project_id: Number(projectId), version } });
+    await apiFetch(API_ROUTES.releases, { method: 'POST', bodyJson: { project_id: Number(projectId), version } });
     setVersion('');
     await load();
   };
