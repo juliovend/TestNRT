@@ -1,0 +1,78 @@
+name: Deploy Hostinger bundle
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  DEPLOY_REPO: ${{ github.repository_owner }}/TestNRT-deploy
+  DEPLOY_BRANCH: main
+
+jobs:
+  build-and-sync:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Build React app (Vite)
+        working-directory: app
+        run: |
+          npm install
+          npm run build
+
+      - name: Prepare deploy_out folder
+        run: |
+          rm -rf deploy_out
+          mkdir -p deploy_out
+
+          # 1) React build at repo root (index.html + assets/*)
+          rsync -a app/dist/ deploy_out/
+
+          # 2) PHP backend copied into /api (exclude server-only config.php)
+          rsync -a --delete --exclude='config.php' public_html/api/ deploy_out/api/
+
+          # 3) Root .htaccess
+          cp public_html/.htaccess deploy_out/.htaccess
+
+          # Auto-generated README for deploy repository
+          cat > deploy_out/README.md <<'EOF'
+          # TestNRT-deploy
+
+          Ce dépôt est généré automatiquement depuis `TestNRT` par GitHub Actions.
+
+          ## Contenu
+          - Frontend React buildé (`index.html`, `assets/`)
+          - Backend PHP (`api/`)
+          - `.htaccess`
+
+          ⚠️ Ne pas éditer ce dépôt manuellement : toute modification sera écrasée au prochain déploiement.
+          EOF
+
+      - name: Push deploy_out to TestNRT-deploy
+        env:
+          DEPLOY_PAT: ${{ secrets.HOSTINGER_DEPLOY_PAT }}
+        run: |
+          if [ -z "$DEPLOY_PAT" ]; then
+            echo "Missing secret HOSTINGER_DEPLOY_PAT"
+            exit 1
+          fi
+
+          cd deploy_out
+          git init -b "$DEPLOY_BRANCH"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Deploy from ${GITHUB_REPOSITORY}@${GITHUB_SHA}" || echo "No changes to commit"
+          git remote add origin "https://x-access-token:${DEPLOY_PAT}@github.com/${DEPLOY_REPO}.git"
+          git push --force origin "$DEPLOY_BRANCH"
