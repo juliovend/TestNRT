@@ -39,8 +39,10 @@ jobs:
           # 1) React build at repo root (index.html + assets/*)
           rsync -a app/dist/ deploy_out/
 
-          # 2) PHP backend copied into /api (exclude server-only config.php)
-          rsync -a --delete --exclude='config.php' public_html/api/ deploy_out/api/
+          # 2) PHP backend copied into /api (includes dotfiles like .htaccess)
+          mkdir -p deploy_out/api
+          cp -a public_html/api/. deploy_out/api/
+          rm -f deploy_out/api/config.php
 
           # 3) Root .htaccess
           cp public_html/.htaccess deploy_out/.htaccess
