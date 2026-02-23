@@ -1,6 +1,6 @@
 # TNR Manager (Hostinger + React + PHP)
 
-Starter complet pour une application web de gestion de tests de non-régression (TNR):
+Starter complet pour une application web de gestion de tests de non-régressions (TNR):
 
 - **Frontend**: React + Vite + TypeScript + MUI (dans `app/`)
 - **Backend API**: PHP natif + PDO (dans `public_html/api/`)
