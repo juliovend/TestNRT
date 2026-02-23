@@ -31,6 +31,7 @@ export const API_ROUTES = {
   },
   runs: {
     create: apiRoute('runs.create'),
+    list: (releaseId: string | number) => apiRoute('runs.list', { release_id: releaseId }),
     get: (runId: string | number) => apiRoute('runs.get', { run_id: runId }),
     exportCsv: (runId: string | number) => apiRoute('runs.export_csv', { run_id: runId }),
     setResult: apiRoute('runs.set_result'),

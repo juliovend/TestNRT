@@ -25,7 +25,7 @@ export default function Login({ onLogin, onRegister }: Props) {
     <Box sx={{ minHeight: '100vh', display: 'grid', placeItems: 'center', p: 2 }}>
       <Paper sx={{ p: 4, width: '100%', maxWidth: 420 }}>
         <Stack spacing={2}>
-          <Typography variant="h5">Connexion TNR</Typography>
+          <Typography variant="h5">Connexion NRT Manager 🌙</Typography>
           {error ? <Alert severity="error">{error}</Alert> : null}
           <TextField label="Nom" value={name} onChange={(e) => setName(e.target.value)} />
           <TextField label="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
