@@ -1,6 +1,5 @@
 import { Alert, Box, Button, Paper, Stack, TextField, Typography } from '@mui/material';
 import { useState } from 'react';
-import { API_ROUTES } from '../api/client';
 
 interface Props {
   onLogin: (email: string, password: string) => Promise<void>;
@@ -41,9 +40,6 @@ export default function Login({ onLogin, onRegister }: Props) {
           </Button>
           <Button variant="outlined" onClick={() => wrap(() => onRegister(email, password, name))}>
             Register email+mdp
-          </Button>
-          <Button color="secondary" href={API_ROUTES.auth.googleStart}>
-            Continuer avec Google
           </Button>
         </Stack>
       </Paper>
