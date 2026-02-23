@@ -4,12 +4,6 @@ import { useEffect, useState } from 'react';
 import AppLayout from './layouts/AppLayout';
 import LoginPage from './pages/Login';
 import Dashboard from './pages/Dashboard';
-import Projects from './pages/Projects';
-import ProjectDetail from './pages/ProjectDetail';
-import Releases from './pages/Releases';
-import TestCases from './pages/TestCases';
-import RunCreate from './pages/RunCreate';
-import RunExecute from './pages/RunExecute';
 import * as authApi from './api/auth';
 import type { User } from './types';
 
@@ -59,6 +53,7 @@ export default function App() {
         path="/"
         element={
           <AppLayout
+            user={user}
             onLogout={async () => {
               await authApi.logout();
               setUser(null);
@@ -68,12 +63,6 @@ export default function App() {
       >
         <Route index element={<Navigate to="/dashboard" replace />} />
         <Route path="dashboard" element={<Dashboard />} />
-        <Route path="projects" element={<Projects />} />
-        <Route path="projects/:id" element={<ProjectDetail />} />
-        <Route path="releases" element={<Releases />} />
-        <Route path="test-cases" element={<TestCases />} />
-        <Route path="runs/new" element={<RunCreate />} />
-        <Route path="runs/execute" element={<RunExecute />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

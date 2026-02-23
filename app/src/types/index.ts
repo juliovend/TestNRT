@@ -34,6 +34,7 @@ export interface TestRun {
   release_id: number;
   created_by: number;
   status: string;
+  created_at: string;
   summary: {
     total: number;
     pass: number;
