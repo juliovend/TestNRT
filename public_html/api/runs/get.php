@@ -1,8 +1,8 @@
 <?php
 $user = require_login();
-$runId = (int) ($_GET['id'] ?? 0);
+$runId = (int) ($_GET['run_id'] ?? ($_GET['id'] ?? 0));
 if ($runId <= 0) {
-    json_response(['message' => 'id run obligatoire'], 422);
+    json_response(['message' => 'run_id obligatoire'], 422);
 }
 
 $stmt = db()->prepare('SELECT * FROM test_runs WHERE id = ?');

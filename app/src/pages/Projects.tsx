@@ -8,7 +8,7 @@ export default function Projects() {
   const [name, setName] = useState('');
 
   const load = async () => {
-    const data = await apiFetch<{ projects: Project[] }>(API_ROUTES.projects);
+    const data = await apiFetch<{ projects: Project[] }>(API_ROUTES.projects.list);
     setItems(data.projects);
   };
 
@@ -17,7 +17,7 @@ export default function Projects() {
   }, []);
 
   const create = async () => {
-    await apiFetch(API_ROUTES.projects, { method: 'POST', bodyJson: { name } });
+    await apiFetch(API_ROUTES.projects.create, { method: 'POST', bodyJson: { name } });
     setName('');
     await load();
   };

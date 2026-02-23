@@ -2,42 +2,40 @@
 require __DIR__ . '/bootstrap.php';
 
 $method = $_SERVER['REQUEST_METHOD'];
-$path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH) ?: '';
-$base = '/api';
-if (str_starts_with($path, $base)) {
-    $path = substr($path, strlen($base));
-}
-$path = '/' . ltrim($path, '/');
-if ($path !== '/') {
-    $path = rtrim($path, '/');
-}
-
-if (str_starts_with($path, '/testcases')) {
-    $path = preg_replace('#^/testcases#', '/test_cases', $path) ?: $path;
-}
+$route = trim((string) ($_GET['route'] ?? ''));
 
 $routes = [
-    'POST /auth/register' => 'auth/register.php',
-    'POST /auth/login' => 'auth/login.php',
-    'POST /auth/logout' => 'auth/logout.php',
-    'GET /auth/me' => 'auth/me.php',
-    'GET /auth/google/start' => 'auth/google_start.php',
-    'GET /auth/google/callback' => 'auth/google_callback.php',
-    'GET /projects' => 'projects/list.php',
-    'POST /projects' => 'projects/create.php',
-    'GET /releases' => 'releases/list.php',
-    'POST /releases' => 'releases/create.php',
-    'GET /test_cases' => 'test_cases/list.php',
-    'POST /test_cases' => 'test_cases/create.php',
-    'PUT /test_cases' => 'test_cases/update.php',
-    'POST /runs/create' => 'runs/create.php',
-    'GET /runs/get' => 'runs/get.php',
-    'POST /runs/set_result' => 'runs/set_result.php',
+    'auth.register' => ['method' => 'POST', 'file' => 'auth/register.php'],
+    'auth.login' => ['method' => 'POST', 'file' => 'auth/login.php'],
+    'auth.logout' => ['method' => 'POST', 'file' => 'auth/logout.php'],
+    'auth.me' => ['method' => 'GET', 'file' => 'auth/me.php'],
+    'auth.google_start' => ['method' => 'GET', 'file' => 'auth/google_start.php'],
+    'auth.google_callback' => ['method' => 'GET', 'file' => 'auth/google_callback.php'],
+    'projects.list' => ['method' => 'GET', 'file' => 'projects/list.php'],
+    'projects.create' => ['method' => 'POST', 'file' => 'projects/create.php'],
+    'releases.list' => ['method' => 'GET', 'file' => 'releases/list.php'],
+    'releases.create' => ['method' => 'POST', 'file' => 'releases/create.php'],
+    'testcases.list' => ['method' => 'GET', 'file' => 'test_cases/list.php'],
+    'testcases.create' => ['method' => 'POST', 'file' => 'test_cases/create.php'],
+    'testcases.update' => ['method' => 'POST', 'file' => 'test_cases/update.php'],
+    'runs.create' => ['method' => 'POST', 'file' => 'runs/create.php'],
+    'runs.get' => ['method' => 'GET', 'file' => 'runs/get.php'],
+    'runs.set_result' => ['method' => 'POST', 'file' => 'runs/set_result.php'],
 ];
 
-$key = $method . ' ' . $path;
-if (!isset($routes[$key])) {
-    json_response(['message' => 'Endpoint non trouvé', 'method' => $method, 'path' => $path], 404);
+if ($route === '' || !isset($routes[$route])) {
+    json_response(['message' => 'Endpoint non trouvé', 'method' => $method, 'route' => $route], 404);
 }
 
-require __DIR__ . '/' . $routes[$key];
+$endpoint = $routes[$route];
+if ($method !== $endpoint['method']) {
+    header('Allow: ' . $endpoint['method']);
+    json_response([
+        'message' => 'Méthode HTTP non autorisée',
+        'route' => $route,
+        'expected_method' => $endpoint['method'],
+        'received_method' => $method,
+    ], 405);
+}
+
+require __DIR__ . '/' . $endpoint['file'];

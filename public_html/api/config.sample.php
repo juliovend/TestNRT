@@ -12,7 +12,7 @@ return [
     'google' => [
         'client_id' => 'GOOGLE_CLIENT_ID',
         'client_secret' => 'GOOGLE_CLIENT_SECRET',
-        'redirect_uri' => 'https://example.com/api/auth/google/callback',
+        'redirect_uri' => 'https://example.com/api/index.php?route=auth.google_callback',
     ],
     'session' => [
         'cookie_secure' => true,

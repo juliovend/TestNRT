@@ -1,6 +1,6 @@
 import { Button, Stack, TextField, Typography } from '@mui/material';
 import { useState } from 'react';
-import { apiFetch } from '../api/client';
+import { API_ROUTES, apiFetch } from '../api/client';
 
 export default function RunCreate() {
   const [projectId, setProjectId] = useState('1');
@@ -8,7 +8,7 @@ export default function RunCreate() {
   const [runId, setRunId] = useState<number | null>(null);
 
   const create = async () => {
-    const data = await apiFetch<{ run_id: number }>('/runs/create', {
+    const data = await apiFetch<{ run_id: number }>(API_ROUTES.runs.create, {
       method: 'POST',
       bodyJson: { project_id: Number(projectId), release_id: Number(releaseId) },
     });
