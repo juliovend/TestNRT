@@ -14,6 +14,10 @@ export default function RunExecute() {
     setDetails(data);
   };
 
+  const exportCsv = () => {
+    window.open(API_ROUTES.runs.exportCsv(runId), '_blank', 'noopener,noreferrer');
+  };
+
   const saveResult = async () => {
     await apiFetch(API_ROUTES.runs.setResult, {
       method: 'POST',
@@ -28,6 +32,7 @@ export default function RunExecute() {
       <Stack direction="row" spacing={2}>
         <TextField label="Run ID" value={runId} onChange={(e) => setRunId(e.target.value)} />
         <Button onClick={load}>Charger</Button>
+        <Button variant="outlined" onClick={exportCsv}>Exporter CSV</Button>
       </Stack>
       <Paper sx={{ p: 2 }}>
         <Typography variant="subtitle1">Résultat d'un test case de run</Typography>
