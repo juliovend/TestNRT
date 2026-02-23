@@ -70,6 +70,11 @@ export default function RunExecute() {
     }
   };
 
+  const exportCsv = () => {
+    window.open(API_ROUTES.runs.exportCsv(runId), '_blank', 'noopener,noreferrer');
+  };
+
+  const saveResult = async () => {
   const selectedResult = useMemo(
     () => details?.results.find((result) => result.test_run_case_id === selectedCaseId) ?? null,
     [details, selectedCaseId],
@@ -111,6 +116,8 @@ export default function RunExecute() {
       <Typography variant="h5">Exécuter un run</Typography>
       <Stack direction="row" spacing={2}>
         <TextField label="Run ID" value={runId} onChange={(e) => setRunId(e.target.value)} />
+        <Button onClick={load}>Charger</Button>
+        <Button variant="outlined" onClick={exportCsv}>Exporter CSV</Button>
         <Button variant="contained" onClick={load}>
           Charger
         </Button>

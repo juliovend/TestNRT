@@ -18,6 +18,7 @@ $routes = [
     'testcases.update' => ['method' => 'POST', 'file' => 'test_cases/update.php'],
     'runs.create' => ['method' => 'POST', 'file' => 'runs/create.php'],
     'runs.get' => ['method' => 'GET', 'file' => 'runs/get.php'],
+    'runs.export_csv' => ['method' => 'GET', 'file' => 'runs/export_csv.php'],
     'runs.set_result' => ['method' => 'POST', 'file' => 'runs/set_result.php'],
 ];
 

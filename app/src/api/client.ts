@@ -32,6 +32,7 @@ export const API_ROUTES = {
   runs: {
     create: apiRoute('runs.create'),
     get: (runId: string | number) => apiRoute('runs.get', { run_id: runId }),
+    exportCsv: (runId: string | number) => apiRoute('runs.export_csv', { run_id: runId }),
     setResult: apiRoute('runs.set_result'),
   },
   auth: {
