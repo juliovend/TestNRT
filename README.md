@@ -5,7 +5,7 @@ Starter complet pour une application web de gestion de tests de non-régressions
 - **Frontend**: React + Vite + TypeScript + MUI (dans `app/`)
 - **Backend API**: PHP natif + PDO (dans `public_html/api/`)
 - **DB**: MySQL (`db/schema.sql` + `db/seed.sql`)
-- **Auth**: email/mot de passe + Google OAuth2
+- **Auth**: email/mot de passe
 - **Session**: cookie PHP HttpOnly (pas de JWT)
 
 ## 1) Structure
@@ -36,7 +36,6 @@ Starter complet pour une application web de gestion de tests de non-régressions
 2. Renseigner:
    - credentials DB
    - `app_url`
-   - Google OAuth (`client_id`, `client_secret`, `redirect_uri`)
 3. `config.php` est ignoré par Git.
 
 ## 5) Développement local
@@ -74,8 +73,6 @@ npm run build
 - `POST /api/auth/login`
 - `POST /api/auth/logout`
 - `GET /api/auth/me`
-- `GET /api/auth/google/start`
-- `GET /api/auth/google/callback`
 
 ### Métier
 - `GET/POST /api/projects`

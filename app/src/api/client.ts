@@ -39,7 +39,6 @@ export const API_ROUTES = {
     login: apiRoute('auth.login'),
     me: apiRoute('auth.me'),
     logout: apiRoute('auth.logout'),
-    googleStart: apiRoute('auth.google_start'),
   },
 } as const;
 
