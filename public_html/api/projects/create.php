@@ -50,15 +50,15 @@ try {
     }
 
     if ($missingEmails !== []) {
-        throw new RuntimeException('Utilisateurs introuvables: ' . implode(', ', $missingEmails));
+        $pdo->rollBack();
+        json_response(['message' => 'Utilisateurs introuvables: ' . implode(', ', $missingEmails)], 422);
     }
 
     $pdo->commit();
     json_response(['project_id' => $projectId], 201);
 } catch (Throwable $e) {
-    $pdo->rollBack();
-    if ($e instanceof RuntimeException) {
-        json_response(['message' => $e->getMessage()], 422);
+    if ($pdo->inTransaction()) {
+        $pdo->rollBack();
     }
     json_response(['message' => 'Erreur création projet', 'details' => $e->getMessage()], 500);
 }
