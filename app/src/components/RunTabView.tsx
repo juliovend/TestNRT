@@ -21,8 +21,11 @@ type RunCase = {
 interface Props { runId: number }
 
 type AxisValueStats = {
+  key: string;
+  depth: number;
   axisLabel: string;
   valueLabel: string;
+  pathLabel: string;
   total: number;
   executed: number;
   remaining: number;
@@ -73,29 +76,39 @@ export default function RunTabView({ runId }: Props) {
   const menuNodes = useMemo(() => buildNodes(0, [], cases), [cases, axes]);
 
   const overviewStats = useMemo<AxisValueStats[]>(() => {
-    return axes.flatMap((axis) => {
-      const levelKey = String(axis.level_number);
-      return axis.values.map((axisValue) => {
-        const scopedCases = cases.filter((runCase) => runCase.analytical_values[levelKey] === axisValue.value_label);
-        const total = scopedCases.length;
-        const executed = scopedCases.filter((runCase) => runCase.status === 'PASS' || runCase.status === 'FAIL').length;
-        const remaining = total - executed;
-        const passed = scopedCases.filter((runCase) => runCase.status === 'PASS').length;
-        const completion = total > 0 ? (executed / total) * 100 : 0;
-        const quality = executed > 0 ? (passed / executed) * 100 : 0;
+    const buildCascadeStats = (levelIndex: number, source: RunCase[], parents: string[]): AxisValueStats[] => {
+      if (levelIndex >= axes.length) return [];
 
-        return {
+      const axis = axes[levelIndex];
+      const levelKey = String(axis.level_number);
+      const values = Array.from(new Set(source.map((item) => item.analytical_values[levelKey]).filter(Boolean)));
+
+      return values.flatMap((value) => {
+        const scopedCases = source.filter((runCase) => runCase.analytical_values[levelKey] === value);
+        const executed = scopedCases.filter((runCase) => runCase.status === 'PASS' || runCase.status === 'FAIL').length;
+        const passed = scopedCases.filter((runCase) => runCase.status === 'PASS').length;
+        const total = scopedCases.length;
+        const currentPath = [...parents, value];
+
+        const current: AxisValueStats = {
+          key: [...parents, `${levelKey}=${value}`].join('|'),
+          depth: levelIndex,
           axisLabel: axis.label,
-          valueLabel: axisValue.value_label,
+          valueLabel: value,
+          pathLabel: currentPath.join(' ▸ '),
           total,
           executed,
-          remaining,
+          remaining: total - executed,
           passed,
-          completion,
-          quality,
+          completion: total > 0 ? (executed / total) * 100 : 0,
+          quality: executed > 0 ? (passed / executed) * 100 : 0,
         };
+
+        return [current, ...buildCascadeStats(levelIndex + 1, scopedCases, currentPath)];
       });
-    });
+    };
+
+    return buildCascadeStats(0, cases, []);
   }, [axes, cases]);
 
   const setStatus = async (testRunCaseId: number, status: RunCase['status'], comment = '') => {
@@ -175,8 +188,13 @@ export default function RunTabView({ runId }: Props) {
         {selection === 'overview' ? (
           <Stack spacing={1.5}>
             {overviewStats.map((stat) => (
-              <Paper key={`${stat.axisLabel}-${stat.valueLabel}`} variant="outlined" sx={{ p: 1.5 }}>
-                <Typography variant="subtitle2">{stat.axisLabel} — {stat.valueLabel}</Typography>
+              <Paper
+                key={stat.key}
+                variant="outlined"
+                sx={{ p: 1.5, ml: stat.depth * 2, borderLeft: stat.depth > 0 ? 3 : 1, borderLeftColor: stat.depth > 0 ? 'primary.main' : 'divider' }}
+              >
+                <Typography variant="subtitle2">Niveau {stat.depth + 1} · {stat.axisLabel} — {stat.valueLabel}</Typography>
+                <Typography variant="caption" color="text.secondary">{stat.pathLabel}</Typography>
                 <Stack direction="row" spacing={1} sx={{ my: 1, flexWrap: 'wrap' }}>
                   <Chip size="small" label={`Total ${stat.total}`} />
                   <Chip size="small" color="info" label={`Exécutés ${stat.executed}`} />
