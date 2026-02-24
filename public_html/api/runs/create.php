@@ -17,15 +17,24 @@ try {
     $insertRun->execute([$projectId, $releaseId, $runNumber, $user['id']]);
     $runId = (int) $pdo->lastInsertId();
 
-    $stmtCases = $pdo->prepare('SELECT id FROM test_cases WHERE project_id = ? AND is_active = 1 ORDER BY case_number ASC, id ASC');
+    $stmtCases = $pdo->prepare('SELECT id, case_number, steps, expected_result, analytical_values_json, attachments_json, is_active FROM test_cases WHERE project_id = ? AND is_active = 1 ORDER BY case_number ASC, id ASC');
     $stmtCases->execute([$projectId]);
     $cases = $stmtCases->fetchAll();
 
-    $insertRunCase = $pdo->prepare('INSERT INTO test_run_cases(test_run_id, test_case_id) VALUES (?, ?)');
+    $insertRunCase = $pdo->prepare('INSERT INTO test_run_cases(test_run_id, test_case_id, case_number, steps, expected_result, analytical_values_json, attachments_json, is_active) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
     $insertResult = $pdo->prepare('INSERT INTO test_run_results(test_run_case_id, status, comment) VALUES (?, "NOT_RUN", NULL)');
 
     foreach ($cases as $case) {
-        $insertRunCase->execute([$runId, $case['id']]);
+        $insertRunCase->execute([
+            $runId,
+            $case['id'],
+            (int) $case['case_number'],
+            $case['steps'],
+            $case['expected_result'],
+            $case['analytical_values_json'],
+            $case['attachments_json'],
+            (int) $case['is_active'],
+        ]);
         $testRunCaseId = (int) $pdo->lastInsertId();
         $insertResult->execute([$testRunCaseId]);
     }

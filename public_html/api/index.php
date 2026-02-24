@@ -33,6 +33,9 @@ $routes = [
     'runs.get' => ['method' => 'GET', 'file' => 'runs/get.php'],
     'runs.export_csv' => ['method' => 'GET', 'file' => 'runs/export_csv.php'],
     'runs.set_result' => ['method' => 'POST', 'file' => 'runs/set_result.php'],
+    'runs.cases_create' => ['method' => 'POST', 'file' => 'runs/cases_create.php'],
+    'runs.cases_update' => ['method' => 'POST', 'file' => 'runs/cases_update.php'],
+    'runs.cases_delete' => ['method' => 'POST', 'file' => 'runs/cases_delete.php'],
     'dashboard.home' => ['method' => 'GET', 'file' => 'dashboard/home.php'],
 ];
 
