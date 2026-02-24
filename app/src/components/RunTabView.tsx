@@ -118,9 +118,9 @@ export default function RunTabView({ runId }: Props) {
               <TableRow>
                 <TableCell>#</TableCell>
                 {axes.map((axis) => <TableCell key={axis.level_number}>{axis.label}</TableCell>)}
-                <TableCell>Steps</TableCell>
-                <TableCell>Expected</TableCell>
-                <TableCell>Comments</TableCell>
+                <TableCell sx={{ minWidth: 260 }}>Steps</TableCell>
+                <TableCell sx={{ minWidth: 260 }}>Expected</TableCell>
+                <TableCell sx={{ minWidth: 260 }}>Comments</TableCell>
                 <TableCell>Tester</TableCell>
                 <TableCell>Test Date</TableCell>
                 <TableCell>Actions</TableCell>
@@ -147,17 +147,61 @@ export default function RunTabView({ runId }: Props) {
                       </TextField>
                     </TableCell>
                   ))}
-                  <TableCell><TextField size="small" value={row.steps} onBlur={() => void saveRow(row)} onChange={(e) => { row.steps = e.target.value; setCases([...cases]); }} /></TableCell>
-                  <TableCell><TextField size="small" value={row.expected_result ?? ''} onBlur={() => void saveRow(row)} onChange={(e) => { row.expected_result = e.target.value; setCases([...cases]); }} /></TableCell>
-                  <TableCell><TextField size="small" value={row.comment ?? ''} onChange={(e) => { row.comment = e.target.value; setCases([...cases]); }} onBlur={() => void apiFetch(API_ROUTES.runs.setResult, { method: 'POST', bodyJson: { test_run_case_id: row.test_run_case_id, status: row.status, comment: row.comment ?? '', touch_execution: 0 } })} /></TableCell>
+                  <TableCell sx={{ minWidth: 260, verticalAlign: 'top' }}>
+                    <TextField
+                      size="small"
+                      fullWidth
+                      multiline
+                      minRows={3}
+                      value={row.steps}
+                      onBlur={() => void saveRow(row)}
+                      onChange={(e) => {
+                        row.steps = e.target.value;
+                        setCases([...cases]);
+                      }}
+                    />
+                  </TableCell>
+                  <TableCell sx={{ minWidth: 260, verticalAlign: 'top' }}>
+                    <TextField
+                      size="small"
+                      fullWidth
+                      multiline
+                      minRows={3}
+                      value={row.expected_result ?? ''}
+                      onBlur={() => void saveRow(row)}
+                      onChange={(e) => {
+                        row.expected_result = e.target.value;
+                        setCases([...cases]);
+                      }}
+                    />
+                  </TableCell>
+                  <TableCell sx={{ minWidth: 260, verticalAlign: 'top' }}>
+                    <TextField
+                      size="small"
+                      fullWidth
+                      multiline
+                      minRows={3}
+                      value={row.comment ?? ''}
+                      onChange={(e) => {
+                        row.comment = e.target.value;
+                        setCases([...cases]);
+                      }}
+                      onBlur={() =>
+                        void apiFetch(API_ROUTES.runs.setResult, {
+                          method: 'POST',
+                          bodyJson: { test_run_case_id: row.test_run_case_id, status: row.status, comment: row.comment ?? '', touch_execution: 0 },
+                        })
+                      }
+                    />
+                  </TableCell>
                   <TableCell>{row.tester_name ?? row.tester_email ?? '-'}</TableCell>
                   <TableCell>{row.tested_at ?? '-'}</TableCell>
                   <TableCell>
                     <Stack direction="row" spacing={0.5}>
-                      <Button size="small" onClick={() => void setStatus(row.test_run_case_id, 'PASS', row.comment ?? '')}>Pass</Button>
-                      <Button size="small" onClick={() => void setStatus(row.test_run_case_id, 'FAIL', row.comment ?? '')}>Fail</Button>
-                      <Button size="small" onClick={() => void setStatus(row.test_run_case_id, 'BLOCKED', row.comment ?? '')}>Blocked</Button>
-                      <Button size="small" onClick={() => void setStatus(row.test_run_case_id, 'NOT_RUN', row.comment ?? '')}>To Do</Button>
+                      <Button size="small" color="success" variant="contained" onClick={() => void setStatus(row.test_run_case_id, 'PASS', row.comment ?? '')}>✅ Pass</Button>
+                      <Button size="small" color="error" variant="contained" onClick={() => void setStatus(row.test_run_case_id, 'FAIL', row.comment ?? '')}>❌ Fail</Button>
+                      <Button size="small" color="warning" variant="contained" onClick={() => void setStatus(row.test_run_case_id, 'BLOCKED', row.comment ?? '')}>⛔ Blocked</Button>
+                      <Button size="small" color="secondary" variant="contained" onClick={() => void setStatus(row.test_run_case_id, 'NOT_RUN', row.comment ?? '')}>📝 To Do</Button>
                       <Button size="small" color="error" startIcon={<Delete />} onClick={async () => {
                         await apiFetch(API_ROUTES.runs.casesDelete, { method: 'POST', bodyJson: { test_run_case_id: row.test_run_case_id } });
                         await load();
