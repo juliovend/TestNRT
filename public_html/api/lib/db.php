@@ -47,6 +47,46 @@ function ensure_schema_compatibility(PDO $pdo): void
     if (table_exists($pdo, 'projects') && !column_exists($pdo, 'projects', 'created_by')) {
         $pdo->exec('ALTER TABLE projects ADD COLUMN created_by INT NULL');
     }
+
+    if (table_exists($pdo, 'test_cases')) {
+        if (!column_exists($pdo, 'test_cases', 'case_number')) {
+            $pdo->exec('ALTER TABLE test_cases ADD COLUMN case_number INT NOT NULL DEFAULT 1 AFTER project_id');
+        }
+        if (!column_exists($pdo, 'test_cases', 'analytical_values_json')) {
+            $pdo->exec('ALTER TABLE test_cases ADD COLUMN analytical_values_json JSON NULL AFTER expected_result');
+        }
+        if (!column_exists($pdo, 'test_cases', 'attachments_json')) {
+            $pdo->exec('ALTER TABLE test_cases ADD COLUMN attachments_json JSON NULL AFTER analytical_values_json');
+        }
+    }
+
+    if (!table_exists($pdo, 'test_book_axes')) {
+        $pdo->exec(
+            "CREATE TABLE IF NOT EXISTS test_book_axes (
+              id INT AUTO_INCREMENT PRIMARY KEY,
+              project_id INT NOT NULL,
+              level_number INT NOT NULL,
+              label VARCHAR(190) NOT NULL,
+              created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+              FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+              UNIQUE KEY uniq_project_axis_level (project_id, level_number)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
+        );
+    }
+
+    if (!table_exists($pdo, 'test_book_axis_values')) {
+        $pdo->exec(
+            "CREATE TABLE IF NOT EXISTS test_book_axis_values (
+              id INT AUTO_INCREMENT PRIMARY KEY,
+              axis_id INT NOT NULL,
+              value_label VARCHAR(190) NOT NULL,
+              sort_order INT NOT NULL DEFAULT 1,
+              created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+              FOREIGN KEY (axis_id) REFERENCES test_book_axes(id) ON DELETE CASCADE,
+              KEY idx_axis_values_order (axis_id, sort_order)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
+        );
+    }
 }
 
 function db(): PDO

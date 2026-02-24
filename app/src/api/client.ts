@@ -30,6 +30,14 @@ export const API_ROUTES = {
     create: apiRoute('testcases.create'),
     update: apiRoute('testcases.update'),
   },
+  testbook: {
+    paramsGet: (projectId: string | number) => apiRoute('testbook.params_get', { project_id: projectId }),
+    paramsSave: apiRoute('testbook.params_save'),
+    casesList: (projectId: string | number) => apiRoute('testbook.cases_list', { project_id: projectId }),
+    casesCreate: apiRoute('testbook.cases_create'),
+    casesUpdate: apiRoute('testbook.cases_update'),
+    casesDelete: apiRoute('testbook.cases_delete'),
+  },
   runs: {
     create: apiRoute('runs.create'),
     update: apiRoute('runs.update'),

@@ -17,7 +17,7 @@ try {
     $insertRun->execute([$projectId, $releaseId, $runNumber, $user['id']]);
     $runId = (int) $pdo->lastInsertId();
 
-    $stmtCases = $pdo->prepare('SELECT id FROM test_cases WHERE project_id = ? AND is_active = 1 ORDER BY id ASC');
+    $stmtCases = $pdo->prepare('SELECT id FROM test_cases WHERE project_id = ? AND is_active = 1 ORDER BY case_number ASC, id ASC');
     $stmtCases->execute([$projectId]);
     $cases = $stmtCases->fetchAll();
 
