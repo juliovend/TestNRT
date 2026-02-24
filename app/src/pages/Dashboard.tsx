@@ -177,6 +177,21 @@ export default function Dashboard() {
     if (activeTab === tabId) setActiveTab('home');
   };
 
+  const deleteProject = async (project: Project) => {
+    if (!confirm(`Supprimer le projet "${project.name}" ? Cette action est irréversible.`)) return;
+
+    await apiFetch(API_ROUTES.projects.delete, {
+      method: 'POST',
+      bodyJson: { project_id: project.id },
+    });
+
+    setTabs((old) => old.filter((tab) => tab.id !== `tb-${project.id}`));
+    if (activeTab === `tb-${project.id}`) {
+      setActiveTab('home');
+    }
+    await load();
+  };
+
   const saveParameters = async () => {
     if (!currentProjectId) return;
     setTbSaving(true);
@@ -286,6 +301,9 @@ export default function Dashboard() {
                       }}
                     >
                       <Edit />
+                    </IconButton>
+                    <IconButton color="error" onClick={() => void deleteProject(project)}>
+                      <Delete />
                     </IconButton>
                   </Stack>
                 </Stack>
