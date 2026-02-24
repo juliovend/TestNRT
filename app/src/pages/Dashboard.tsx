@@ -1,4 +1,4 @@
-import { Add, Delete, Edit, MenuBook, PlayArrow, Refresh } from '@mui/icons-material';
+import { Add, Delete, Edit, MenuBook, PlayArrow, Refresh, Save } from '@mui/icons-material';
 import {
   Alert,
   Box,
@@ -17,17 +17,45 @@ import {
   Stack,
   Tab,
   Tabs,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
   TextField,
   Typography,
 } from '@mui/material';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { API_ROUTES, apiFetch } from '../api/client';
 import type { Project, Release, RunItem, TestBookAxis, TestBookCase } from '../types';
 
 type TabItem = { id: string; label: string; kind: 'home' | 'testbook' | 'run' };
 type TestBookSection = 'parameters' | 'cases';
 
-const defaultAxis = (level: number): TestBookAxis => ({ level_number: level, label: `Axe ${level}`, values: [{ value_label: 'Valeur 1' }] });
+type CaseFilters = {
+  caseNumber: string;
+  steps: string;
+  expectedResult: string;
+  attachments: string;
+  axisValues: Record<string, string>;
+};
+
+const defaultAxis = (level: number): TestBookAxis => ({
+  level_number: level,
+  label: `Axe ${level}`,
+  values: [{ value_label: 'Valeur 1' }],
+});
+
+const defaultFilters = (): CaseFilters => ({
+  caseNumber: '',
+  steps: '',
+  expectedResult: '',
+  attachments: '',
+  axisValues: {},
+});
+
+const normalize = (value: string) => value.toLowerCase().trim();
 
 export default function Dashboard() {
   const [projects, setProjects] = useState<Project[]>([]);
@@ -46,10 +74,11 @@ export default function Dashboard() {
   const [tbSectionByTab, setTbSectionByTab] = useState<Record<string, TestBookSection>>({});
   const [tbAxes, setTbAxes] = useState<TestBookAxis[]>([]);
   const [tbCases, setTbCases] = useState<TestBookCase[]>([]);
-  const [selectedCaseId, setSelectedCaseId] = useState<number | null>(null);
   const [tbLoading, setTbLoading] = useState(false);
   const [tbSaving, setTbSaving] = useState(false);
-  const saveTimeoutRef = useRef<number | null>(null);
+  const [tbParamsDirty, setTbParamsDirty] = useState(false);
+  const [tbCasesDirty, setTbCasesDirty] = useState(false);
+  const [caseFilters, setCaseFilters] = useState<CaseFilters>(defaultFilters());
 
   const currentTab = tabs.find((t) => t.id === activeTab);
   const currentProjectId = currentTab?.kind === 'testbook' ? Number(currentTab.id.replace('tb-', '')) : null;
@@ -64,15 +93,10 @@ export default function Dashboard() {
       setError(err instanceof Error ? err.message : 'Erreur lors du chargement des projets');
     }
   };
-  useEffect(() => { void load(); }, []);
 
-  const scheduleAutoSave = (action: () => Promise<void>) => {
-    if (saveTimeoutRef.current) window.clearTimeout(saveTimeoutRef.current);
-    saveTimeoutRef.current = window.setTimeout(() => {
-      setTbSaving(true);
-      action().finally(() => setTbSaving(false));
-    }, 500);
-  };
+  useEffect(() => {
+    void load();
+  }, []);
 
   const loadTestBook = async (projectId: number) => {
     setTbLoading(true);
@@ -83,7 +107,9 @@ export default function Dashboard() {
       ]);
       setTbAxes(params.axes.length ? params.axes : [defaultAxis(1)]);
       setTbCases(cases.test_cases);
-      setSelectedCaseId(cases.test_cases[0]?.id ?? null);
+      setTbParamsDirty(false);
+      setTbCasesDirty(false);
+      setCaseFilters(defaultFilters());
     } finally {
       setTbLoading(false);
     }
@@ -95,9 +121,15 @@ export default function Dashboard() {
   }, [currentProjectId]);
 
   const submitProject = async () => {
-    const emails = assignedEmails.split(',').map((e) => e.trim()).filter(Boolean);
+    const emails = assignedEmails
+      .split(',')
+      .map((e) => e.trim())
+      .filter(Boolean);
     if (projectModal.project) {
-      await apiFetch(API_ROUTES.projects.update, { method: 'POST', bodyJson: { project_id: projectModal.project.id, name: projectName, assigned_emails: emails } });
+      await apiFetch(API_ROUTES.projects.update, {
+        method: 'POST',
+        bodyJson: { project_id: projectModal.project.id, name: projectName, assigned_emails: emails },
+      });
     } else {
       await apiFetch(API_ROUTES.projects.create, { method: 'POST', bodyJson: { name: projectName, assigned_emails: emails } });
     }
@@ -108,9 +140,15 @@ export default function Dashboard() {
   const submitRelease = async () => {
     if (!releaseModal.projectId) return;
     if (releaseModal.release) {
-      await apiFetch(API_ROUTES.releases.update, { method: 'POST', bodyJson: { release_id: releaseModal.release.id, version: versionName } });
+      await apiFetch(API_ROUTES.releases.update, {
+        method: 'POST',
+        bodyJson: { release_id: releaseModal.release.id, version: versionName },
+      });
     } else {
-      await apiFetch(API_ROUTES.releases.create, { method: 'POST', bodyJson: { project_id: releaseModal.projectId, version: versionName } });
+      await apiFetch(API_ROUTES.releases.create, {
+        method: 'POST',
+        bodyJson: { project_id: releaseModal.projectId, version: versionName },
+      });
     }
     setReleaseModal({ open: false });
     await load();
@@ -119,9 +157,15 @@ export default function Dashboard() {
   const submitRun = async () => {
     if (!runModal.projectId || !runModal.releaseId) return;
     if (runModal.run) {
-      await apiFetch(API_ROUTES.runs.update, { method: 'POST', bodyJson: { run_id: runModal.run.id, run_number: Number(runNumber) } });
+      await apiFetch(API_ROUTES.runs.update, {
+        method: 'POST',
+        bodyJson: { run_id: runModal.run.id, run_number: Number(runNumber) },
+      });
     } else {
-      await apiFetch(API_ROUTES.runs.create, { method: 'POST', bodyJson: { project_id: runModal.projectId, release_id: runModal.releaseId, run_number: Number(runNumber) } });
+      await apiFetch(API_ROUTES.runs.create, {
+        method: 'POST',
+        bodyJson: { project_id: runModal.projectId, release_id: runModal.releaseId, run_number: Number(runNumber) },
+      });
     }
     setRunModal({ open: false });
     await load();
@@ -132,81 +176,601 @@ export default function Dashboard() {
     if (activeTab === tabId) setActiveTab('home');
   };
 
-  const saveAxes = (next: TestBookAxis[]) => {
+  const saveParameters = async () => {
     if (!currentProjectId) return;
-    setTbAxes(next.map((a, i) => ({ ...a, level_number: i + 1 })));
-    scheduleAutoSave(async () => {
-      await apiFetch(API_ROUTES.testbook.paramsSave, { method: 'POST', bodyJson: { project_id: currentProjectId, axes: next } });
-      await loadTestBook(currentProjectId);
-    });
-  };
-
-  const selectedCase = tbCases.find((item) => item.id === selectedCaseId) ?? null;
-  const saveCase = (nextCase: TestBookCase) => {
-    setTbCases((old) => old.map((item) => (item.id === nextCase.id ? nextCase : item)));
-    scheduleAutoSave(async () => {
-      await apiFetch(API_ROUTES.testbook.casesUpdate, {
+    setTbSaving(true);
+    try {
+      await apiFetch(API_ROUTES.testbook.paramsSave, {
         method: 'POST',
         bodyJson: {
-          id: nextCase.id,
-          description: nextCase.steps,
-          expected_result: nextCase.expected_result ?? '',
-          analytical_values: nextCase.analytical_values,
-          attachments: nextCase.attachments,
-          is_active: nextCase.is_active,
+          project_id: currentProjectId,
+          axes: tbAxes.map((axis, idx) => ({ ...axis, level_number: idx + 1 })),
         },
       });
-      if (currentProjectId) await loadTestBook(currentProjectId);
-    });
+      await loadTestBook(currentProjectId);
+    } finally {
+      setTbSaving(false);
+    }
   };
+
+  const saveCases = async () => {
+    if (!currentProjectId) return;
+    setTbSaving(true);
+    try {
+      for (const item of tbCases) {
+        await apiFetch(API_ROUTES.testbook.casesUpdate, {
+          method: 'POST',
+          bodyJson: {
+            id: item.id,
+            description: item.steps,
+            expected_result: item.expected_result ?? '',
+            analytical_values: item.analytical_values,
+            attachments: item.attachments,
+            is_active: item.is_active,
+          },
+        });
+      }
+      await loadTestBook(currentProjectId);
+    } finally {
+      setTbSaving(false);
+    }
+  };
+
+  const updateCase = (caseId: number, patch: Partial<TestBookCase>) => {
+    setTbCases((old) => old.map((item) => (item.id === caseId ? { ...item, ...patch } : item)));
+    setTbCasesDirty(true);
+  };
+
+  const filteredCases = useMemo(() => {
+    return tbCases.filter((item) => {
+      const matchesCase = normalize(String(item.case_number)).includes(normalize(caseFilters.caseNumber));
+      const matchesSteps = normalize(item.steps ?? '').includes(normalize(caseFilters.steps));
+      const matchesExpected = normalize(item.expected_result ?? '').includes(normalize(caseFilters.expectedResult));
+      const matchesAttachments = normalize(item.attachments.join(' | ')).includes(normalize(caseFilters.attachments));
+      const matchesAxes = tbAxes.every((axis) => {
+        const needle = normalize(caseFilters.axisValues[String(axis.level_number)] ?? '');
+        if (!needle) return true;
+        return normalize(item.analytical_values[String(axis.level_number)] ?? '').includes(needle);
+      });
+      return matchesCase && matchesSteps && matchesExpected && matchesAttachments && matchesAxes;
+    });
+  }, [caseFilters, tbAxes, tbCases]);
 
   const body = useMemo(() => {
     if (activeTab === 'home') {
-      return <Stack spacing={2}>
-        <Stack direction="row" justifyContent="space-between"><Typography variant="h4">My Projects</Typography><Stack direction="row" spacing={1}><Button startIcon={<Refresh />} onClick={() => void load()}>Refresh</Button><Button variant="contained" startIcon={<Add />} onClick={() => { setProjectName(''); setAssignedEmails(''); setProjectModal({ open: true }); }}>New Project</Button></Stack></Stack>
-        {projects.map((project) => <Paper key={project.id} sx={{ p: 2 }}><Stack spacing={1.25}><Stack direction="row" justifyContent="space-between" alignItems="center"><Typography variant="h6">{project.name}</Typography><Stack direction="row" spacing={1}><IconButton onClick={() => { const tabId = `tb-${project.id}`; if (!tabs.some((t) => t.id === tabId)) setTabs((old) => [...old, { id: tabId, label: `${project.name} - Test Book`, kind: 'testbook' }]); setActiveTab(tabId); }}><MenuBook /></IconButton><IconButton onClick={() => { setProjectModal({ open: true, project }); setProjectName(project.name); setAssignedEmails(project.assigned_emails.join(', ')); }}><Edit /></IconButton></Stack></Stack>
-          {(project.releases ?? []).map((release) => <Paper key={release.id} variant="outlined" sx={{ p: 1.5 }}><Stack direction="row" justifyContent="space-between" alignItems="center"><Stack direction="row" spacing={1} alignItems="center"><Chip size="small" label={release.version} /><Typography variant="body2" color="text.secondary">{(release.runs ?? []).length} runs</Typography></Stack><Stack direction="row" spacing={1}><IconButton size="small" onClick={() => { setReleaseModal({ open: true, projectId: project.id, release }); setVersionName(release.version); }}><Edit fontSize="small" /></IconButton><IconButton size="small" color="error" onClick={async () => { if (confirm('Supprimer cette version ?')) { await apiFetch(API_ROUTES.releases.delete, { method: 'POST', bodyJson: { release_id: release.id } }); await load(); } }}><Delete fontSize="small" /></IconButton><IconButton size="small" onClick={() => { const tabId = `run-${release.id}`; if (!tabs.some((t) => t.id === tabId)) setTabs((old) => [...old, { id: tabId, label: `${project.name} - Run`, kind: 'run' }]); setActiveTab(tabId); }}><PlayArrow fontSize="small" /></IconButton></Stack></Stack>
-            <Stack sx={{ mt: 1 }} spacing={0.5}>{(release.runs ?? []).map((run) => <Stack key={run.id} direction="row" justifyContent="space-between" alignItems="center"><Typography variant="body2">Run #{run.run_number}</Typography><Stack direction="row"><IconButton size="small" onClick={() => { setRunModal({ open: true, projectId: project.id, releaseId: release.id, run }); setRunNumber(String(run.run_number)); }}><Edit fontSize="small" /></IconButton><IconButton size="small" color="error" onClick={async () => { if (confirm('Supprimer ce run ?')) { await apiFetch(API_ROUTES.runs.delete, { method: 'POST', bodyJson: { run_id: run.id } }); await load(); } }}><Delete fontSize="small" /></IconButton></Stack></Stack>)}<Button size="small" startIcon={<Add />} onClick={() => { setRunModal({ open: true, projectId: project.id, releaseId: release.id }); setRunNumber(''); }}>New Run</Button></Stack>
-          </Paper>)}
-          <Button size="small" startIcon={<Add />} onClick={() => { setReleaseModal({ open: true, projectId: project.id }); setVersionName(''); }}>New Version</Button>
-        </Stack></Paper>)}
-      </Stack>;
+      return (
+        <Stack spacing={2}>
+          <Stack direction="row" justifyContent="space-between">
+            <Typography variant="h4">My Projects</Typography>
+            <Stack direction="row" spacing={1}>
+              <Button startIcon={<Refresh />} onClick={() => void load()}>
+                Refresh
+              </Button>
+              <Button
+                variant="contained"
+                startIcon={<Add />}
+                onClick={() => {
+                  setProjectName('');
+                  setAssignedEmails('');
+                  setProjectModal({ open: true });
+                }}
+              >
+                New Project
+              </Button>
+            </Stack>
+          </Stack>
+
+          {projects.map((project) => (
+            <Paper key={project.id} sx={{ p: 2 }}>
+              <Stack spacing={1.25}>
+                <Stack direction="row" justifyContent="space-between" alignItems="center">
+                  <Typography variant="h6">{project.name}</Typography>
+                  <Stack direction="row" spacing={1}>
+                    <IconButton
+                      onClick={() => {
+                        const tabId = `tb-${project.id}`;
+                        if (!tabs.some((t) => t.id === tabId)) {
+                          setTabs((old) => [...old, { id: tabId, label: `${project.name} - Test Book`, kind: 'testbook' }]);
+                        }
+                        setActiveTab(tabId);
+                      }}
+                    >
+                      <MenuBook />
+                    </IconButton>
+                    <IconButton
+                      onClick={() => {
+                        setProjectModal({ open: true, project });
+                        setProjectName(project.name);
+                        setAssignedEmails(project.assigned_emails.join(', '));
+                      }}
+                    >
+                      <Edit />
+                    </IconButton>
+                  </Stack>
+                </Stack>
+
+                {(project.releases ?? []).map((release) => (
+                  <Paper key={release.id} variant="outlined" sx={{ p: 1.5 }}>
+                    <Stack direction="row" justifyContent="space-between" alignItems="center">
+                      <Stack direction="row" spacing={1} alignItems="center">
+                        <Chip size="small" label={release.version} />
+                        <Typography variant="body2" color="text.secondary">
+                          {(release.runs ?? []).length} runs
+                        </Typography>
+                      </Stack>
+                      <Stack direction="row" spacing={1}>
+                        <IconButton
+                          size="small"
+                          onClick={() => {
+                            setReleaseModal({ open: true, projectId: project.id, release });
+                            setVersionName(release.version);
+                          }}
+                        >
+                          <Edit fontSize="small" />
+                        </IconButton>
+                        <IconButton
+                          size="small"
+                          color="error"
+                          onClick={async () => {
+                            if (confirm('Supprimer cette version ?')) {
+                              await apiFetch(API_ROUTES.releases.delete, {
+                                method: 'POST',
+                                bodyJson: { release_id: release.id },
+                              });
+                              await load();
+                            }
+                          }}
+                        >
+                          <Delete fontSize="small" />
+                        </IconButton>
+                        <IconButton
+                          size="small"
+                          onClick={() => {
+                            const tabId = `run-${release.id}`;
+                            if (!tabs.some((t) => t.id === tabId)) {
+                              setTabs((old) => [...old, { id: tabId, label: `${project.name} - Run`, kind: 'run' }]);
+                            }
+                            setActiveTab(tabId);
+                          }}
+                        >
+                          <PlayArrow fontSize="small" />
+                        </IconButton>
+                      </Stack>
+                    </Stack>
+
+                    <Stack sx={{ mt: 1 }} spacing={0.5}>
+                      {(release.runs ?? []).map((run) => (
+                        <Stack key={run.id} direction="row" justifyContent="space-between" alignItems="center">
+                          <Typography variant="body2">Run #{run.run_number}</Typography>
+                          <Stack direction="row">
+                            <IconButton
+                              size="small"
+                              onClick={() => {
+                                setRunModal({ open: true, projectId: project.id, releaseId: release.id, run });
+                                setRunNumber(String(run.run_number));
+                              }}
+                            >
+                              <Edit fontSize="small" />
+                            </IconButton>
+                            <IconButton
+                              size="small"
+                              color="error"
+                              onClick={async () => {
+                                if (confirm('Supprimer ce run ?')) {
+                                  await apiFetch(API_ROUTES.runs.delete, {
+                                    method: 'POST',
+                                    bodyJson: { run_id: run.id },
+                                  });
+                                  await load();
+                                }
+                              }}
+                            >
+                              <Delete fontSize="small" />
+                            </IconButton>
+                          </Stack>
+                        </Stack>
+                      ))}
+
+                      <Button
+                        size="small"
+                        startIcon={<Add />}
+                        onClick={() => {
+                          setRunModal({ open: true, projectId: project.id, releaseId: release.id });
+                          setRunNumber('');
+                        }}
+                      >
+                        New Run
+                      </Button>
+                    </Stack>
+                  </Paper>
+                ))}
+
+                <Button
+                  size="small"
+                  startIcon={<Add />}
+                  onClick={() => {
+                    setReleaseModal({ open: true, projectId: project.id });
+                    setVersionName('');
+                  }}
+                >
+                  New Version
+                </Button>
+              </Stack>
+            </Paper>
+          ))}
+        </Stack>
+      );
     }
 
     if (currentTab?.kind === 'testbook' && currentProjectId) {
       const section = tbSectionByTab[activeTab] ?? 'parameters';
-      return <Box sx={{ display: 'flex', gap: 2 }}>
-        <Paper sx={{ width: 260, p: 1.5, alignSelf: 'flex-start' }}>
-          <List dense>
-            <ListItemButton selected={section === 'parameters'} onClick={() => setTbSectionByTab((old) => ({ ...old, [activeTab]: 'parameters' }))}><ListItemText primary="Test Book parameters" /></ListItemButton>
-            <ListItemButton selected={section === 'cases'} onClick={() => setTbSectionByTab((old) => ({ ...old, [activeTab]: 'cases' }))}><ListItemText primary="Test Cases" /></ListItemButton>
-          </List>
-          {tbSaving ? <Typography variant="caption">Auto save...</Typography> : null}
-        </Paper>
-        <Paper sx={{ p: 2, flex: 1 }}>
-          {tbLoading ? <Typography>Chargement...</Typography> : section === 'parameters' ? <Stack spacing={1.5}>
-            <Stack direction="row" justifyContent="space-between"><Typography variant="h6">Axes analytiques</Typography><Button startIcon={<Add />} onClick={() => saveAxes([...tbAxes, defaultAxis(tbAxes.length + 1)])}>Ajouter un axe</Button></Stack>
-            {tbAxes.map((axis, idx) => <Paper key={idx} variant="outlined" sx={{ p: 1.5 }}><Stack spacing={1}><Stack direction="row" alignItems="center" spacing={1}><Chip label={`Niveau ${idx + 1}`} /><TextField size="small" label="Libellé" value={axis.label} onChange={(e) => saveAxes(tbAxes.map((a, i) => (i === idx ? { ...a, label: e.target.value } : a)))} />{tbAxes.length > 1 ? <IconButton color="error" onClick={() => saveAxes(tbAxes.filter((_, i) => i !== idx))}><Delete /></IconButton> : null}</Stack>
-              {axis.values.map((v, vIdx) => <Stack key={vIdx} direction="row" spacing={1}><TextField size="small" label={`Valeur ${vIdx + 1}`} value={v.value_label} onChange={(e) => saveAxes(tbAxes.map((a, i) => i !== idx ? a : { ...a, values: a.values.map((x, j) => j === vIdx ? { ...x, value_label: e.target.value } : x) }))} />{axis.values.length > 1 ? <IconButton color="error" onClick={() => saveAxes(tbAxes.map((a, i) => i !== idx ? a : { ...a, values: a.values.filter((_, j) => j !== vIdx) }))}><Delete /></IconButton> : null}</Stack>)}
-              <Button size="small" onClick={() => saveAxes(tbAxes.map((a, i) => i !== idx ? a : { ...a, values: [...a.values, { value_label: `Valeur ${a.values.length + 1}` }] }))}>Ajouter une valeur</Button>
-            </Stack></Paper>)}
-          </Stack> : <Stack spacing={2}><Stack direction="row" justifyContent="space-between"><Typography variant="h6">Cas de tests</Typography><Button startIcon={<Add />} onClick={async () => { await apiFetch(API_ROUTES.testbook.casesCreate, { method: 'POST', bodyJson: { project_id: currentProjectId, insert_index: tbCases.length + 1, description: '', expected_result: '', analytical_values: {} } }); await loadTestBook(currentProjectId); }}>Ajouter en fin</Button></Stack>
-            <Stack direction="row" spacing={2} alignItems="flex-start"><Paper variant="outlined" sx={{ width: 280, maxHeight: 520, overflow: 'auto' }}><List dense>{tbCases.map((tc, idx) => <ListItemButton key={tc.id} selected={selectedCaseId === tc.id} onClick={() => setSelectedCaseId(tc.id)}><ListItemText primary={`#${tc.case_number}`} secondary={tc.steps || 'Sans description'} />
-              <IconButton size="small" onClick={async (e) => { e.stopPropagation(); await apiFetch(API_ROUTES.testbook.casesCreate, { method: 'POST', bodyJson: { project_id: currentProjectId, insert_index: idx + 1, description: '', expected_result: '', analytical_values: {} } }); await loadTestBook(currentProjectId); }}><Add fontSize="small" /></IconButton>
-              {tbCases.length > 1 ? <IconButton size="small" color="error" onClick={async (e) => { e.stopPropagation(); await apiFetch(API_ROUTES.testbook.casesDelete, { method: 'POST', bodyJson: { id: tc.id } }); await loadTestBook(currentProjectId); }}><Delete fontSize="small" /></IconButton> : null}
-            </ListItemButton>)}</List></Paper>
-            <Box sx={{ flex: 1 }}>{selectedCase ? <Stack spacing={1}><Typography variant="subtitle1">Cas #{selectedCase.case_number}</Typography>
-              {tbAxes.map((axis) => <TextField key={axis.level_number} select label={`${axis.level_number}. ${axis.label}`} size="small" value={selectedCase.analytical_values[String(axis.level_number)] ?? ''} onChange={(e) => saveCase({ ...selectedCase, analytical_values: { ...selectedCase.analytical_values, [String(axis.level_number)]: e.target.value } })}>{axis.values.map((v, i) => <MenuItem key={i} value={v.value_label}>{v.value_label}</MenuItem>)}</TextField>)}
-              <TextField label="Description du test" multiline minRows={3} value={selectedCase.steps} onChange={(e) => saveCase({ ...selectedCase, steps: e.target.value })} />
-              <TextField label="Résultat attendu" multiline minRows={2} value={selectedCase.expected_result ?? ''} onChange={(e) => saveCase({ ...selectedCase, expected_result: e.target.value })} />
-              <TextField label="Pièces jointes (une par ligne)" multiline minRows={2} value={selectedCase.attachments.join('\n')} onChange={(e) => saveCase({ ...selectedCase, attachments: e.target.value.split('\n').map((x) => x.trim()).filter(Boolean) })} />
-            </Stack> : <Typography color="text.secondary">Sélectionnez un cas.</Typography>}</Box></Stack></Stack>}
-        </Paper>
-      </Box>;
+
+      return (
+        <Box sx={{ display: 'flex', gap: 2 }}>
+          <Paper sx={{ width: 260, p: 1.5, alignSelf: 'flex-start' }}>
+            <List dense>
+              <ListItemButton
+                selected={section === 'parameters'}
+                onClick={() => setTbSectionByTab((old) => ({ ...old, [activeTab]: 'parameters' }))}
+              >
+                <ListItemText primary="Test Book parameters" />
+              </ListItemButton>
+              <ListItemButton selected={section === 'cases'} onClick={() => setTbSectionByTab((old) => ({ ...old, [activeTab]: 'cases' }))}>
+                <ListItemText primary="Test Cases" />
+              </ListItemButton>
+            </List>
+          </Paper>
+
+          <Paper sx={{ flex: 1, p: 2 }}>
+            {tbLoading ? (
+              <Typography>Chargement...</Typography>
+            ) : section === 'parameters' ? (
+              <Stack spacing={2}>
+                <Stack direction="row" justifyContent="space-between" alignItems="center">
+                  <Typography variant="h6">Paramètres du Test Book</Typography>
+                  <Button
+                    variant="contained"
+                    startIcon={<Save />}
+                    disabled={!tbParamsDirty || tbSaving}
+                    onClick={() => void saveParameters()}
+                  >
+                    Save
+                  </Button>
+                </Stack>
+
+                {tbAxes.map((axis, idx) => (
+                  <Paper key={idx} variant="outlined" sx={{ p: 1.5 }}>
+                    <Stack spacing={1}>
+                      <Stack direction="row" spacing={1} alignItems="center">
+                        <TextField
+                          size="small"
+                          fullWidth
+                          label={`Niveau ${idx + 1}`}
+                          value={axis.label}
+                          onChange={(e) => {
+                            const next = tbAxes.map((a, i) => (i === idx ? { ...a, label: e.target.value } : a));
+                            setTbAxes(next);
+                            setTbParamsDirty(true);
+                          }}
+                        />
+                        {tbAxes.length > 1 ? (
+                          <IconButton
+                            color="error"
+                            onClick={() => {
+                              setTbAxes(tbAxes.filter((_, i) => i !== idx));
+                              setTbParamsDirty(true);
+                            }}
+                          >
+                            <Delete />
+                          </IconButton>
+                        ) : null}
+                      </Stack>
+
+                      {axis.values.map((value, valueIdx) => (
+                        <Stack key={valueIdx} direction="row" spacing={1} alignItems="center">
+                          <TextField
+                            size="small"
+                            fullWidth
+                            label={`Valeur ${valueIdx + 1}`}
+                            value={value.value_label}
+                            onChange={(e) => {
+                              const next = tbAxes.map((a, i) => {
+                                if (i !== idx) return a;
+                                return {
+                                  ...a,
+                                  values: a.values.map((v, j) => (j === valueIdx ? { ...v, value_label: e.target.value } : v)),
+                                };
+                              });
+                              setTbAxes(next);
+                              setTbParamsDirty(true);
+                            }}
+                          />
+                          {axis.values.length > 1 ? (
+                            <IconButton
+                              color="error"
+                              onClick={() => {
+                                const next = tbAxes.map((a, i) => {
+                                  if (i !== idx) return a;
+                                  return { ...a, values: a.values.filter((_, j) => j !== valueIdx) };
+                                });
+                                setTbAxes(next);
+                                setTbParamsDirty(true);
+                              }}
+                            >
+                              <Delete />
+                            </IconButton>
+                          ) : null}
+                        </Stack>
+                      ))}
+
+                      <Button
+                        size="small"
+                        onClick={() => {
+                          const next = tbAxes.map((a, i) =>
+                            i !== idx ? a : { ...a, values: [...a.values, { value_label: `Valeur ${a.values.length + 1}` }] },
+                          );
+                          setTbAxes(next);
+                          setTbParamsDirty(true);
+                        }}
+                      >
+                        Ajouter une valeur
+                      </Button>
+                    </Stack>
+                  </Paper>
+                ))}
+
+                <Button
+                  startIcon={<Add />}
+                  onClick={() => {
+                    setTbAxes([...tbAxes, defaultAxis(tbAxes.length + 1)]);
+                    setTbParamsDirty(true);
+                  }}
+                >
+                  Ajouter un axe
+                </Button>
+              </Stack>
+            ) : (
+              <Stack spacing={2}>
+                <Stack direction="row" justifyContent="space-between" alignItems="center">
+                  <Typography variant="h6">Cas de tests</Typography>
+                  <Stack direction="row" spacing={1}>
+                    <Button
+                      startIcon={<Add />}
+                      onClick={async () => {
+                        await apiFetch(API_ROUTES.testbook.casesCreate, {
+                          method: 'POST',
+                          bodyJson: {
+                            project_id: currentProjectId,
+                            insert_index: tbCases.length + 1,
+                            description: '',
+                            expected_result: '',
+                            analytical_values: {},
+                          },
+                        });
+                        await loadTestBook(currentProjectId);
+                      }}
+                    >
+                      Ajouter en fin
+                    </Button>
+                    <Button
+                      variant="contained"
+                      startIcon={<Save />}
+                      disabled={!tbCasesDirty || tbSaving}
+                      onClick={() => void saveCases()}
+                    >
+                      Save
+                    </Button>
+                  </Stack>
+                </Stack>
+
+                <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: 620 }}>
+                  <Table size="small" stickyHeader>
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>#</TableCell>
+                        {tbAxes.map((axis) => (
+                          <TableCell key={axis.level_number}>{axis.label}</TableCell>
+                        ))}
+                        <TableCell>Description</TableCell>
+                        <TableCell>Résultat attendu</TableCell>
+                        <TableCell>Pièces jointes</TableCell>
+                        <TableCell align="center">Actions</TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell>
+                          <TextField
+                            size="small"
+                            placeholder="Filtrer"
+                            value={caseFilters.caseNumber}
+                            onChange={(e) => setCaseFilters((old) => ({ ...old, caseNumber: e.target.value }))}
+                          />
+                        </TableCell>
+                        {tbAxes.map((axis) => (
+                          <TableCell key={axis.level_number}>
+                            <TextField
+                              size="small"
+                              placeholder="Filtrer"
+                              value={caseFilters.axisValues[String(axis.level_number)] ?? ''}
+                              onChange={(e) =>
+                                setCaseFilters((old) => ({
+                                  ...old,
+                                  axisValues: { ...old.axisValues, [String(axis.level_number)]: e.target.value },
+                                }))
+                              }
+                            />
+                          </TableCell>
+                        ))}
+                        <TableCell>
+                          <TextField
+                            size="small"
+                            placeholder="Filtrer"
+                            value={caseFilters.steps}
+                            onChange={(e) => setCaseFilters((old) => ({ ...old, steps: e.target.value }))}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <TextField
+                            size="small"
+                            placeholder="Filtrer"
+                            value={caseFilters.expectedResult}
+                            onChange={(e) => setCaseFilters((old) => ({ ...old, expectedResult: e.target.value }))}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <TextField
+                            size="small"
+                            placeholder="Filtrer"
+                            value={caseFilters.attachments}
+                            onChange={(e) => setCaseFilters((old) => ({ ...old, attachments: e.target.value }))}
+                          />
+                        </TableCell>
+                        <TableCell />
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {filteredCases.map((item) => {
+                        const rowIndex = tbCases.findIndex((caseItem) => caseItem.id === item.id);
+                        return (
+                          <TableRow key={item.id} hover>
+                            <TableCell>{item.case_number}</TableCell>
+                            {tbAxes.map((axis) => (
+                              <TableCell key={`${item.id}-${axis.level_number}`}>
+                                <TextField
+                                  size="small"
+                                  select
+                                  value={item.analytical_values[String(axis.level_number)] ?? ''}
+                                  onChange={(e) => {
+                                    updateCase(item.id, {
+                                      analytical_values: {
+                                        ...item.analytical_values,
+                                        [String(axis.level_number)]: e.target.value,
+                                      },
+                                    });
+                                  }}
+                                  sx={{ minWidth: 170 }}
+                                >
+                                  {axis.values.map((value, idx) => (
+                                    <MenuItem key={idx} value={value.value_label}>
+                                      {value.value_label}
+                                    </MenuItem>
+                                  ))}
+                                </TextField>
+                              </TableCell>
+                            ))}
+                            <TableCell>
+                              <TextField
+                                size="small"
+                                fullWidth
+                                multiline
+                                minRows={2}
+                                value={item.steps}
+                                onChange={(e) => updateCase(item.id, { steps: e.target.value })}
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <TextField
+                                size="small"
+                                fullWidth
+                                multiline
+                                minRows={2}
+                                value={item.expected_result ?? ''}
+                                onChange={(e) => updateCase(item.id, { expected_result: e.target.value })}
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <TextField
+                                size="small"
+                                fullWidth
+                                multiline
+                                minRows={2}
+                                value={item.attachments.join('\n')}
+                                onChange={(e) =>
+                                  updateCase(item.id, {
+                                    attachments: e.target.value
+                                      .split('\n')
+                                      .map((x) => x.trim())
+                                      .filter(Boolean),
+                                  })
+                                }
+                              />
+                            </TableCell>
+                            <TableCell align="center">
+                              <Stack direction="row" spacing={0.5} justifyContent="center">
+                                <IconButton
+                                  size="small"
+                                  onClick={async () => {
+                                    await apiFetch(API_ROUTES.testbook.casesCreate, {
+                                      method: 'POST',
+                                      bodyJson: {
+                                        project_id: currentProjectId,
+                                        insert_index: rowIndex + 2,
+                                        description: '',
+                                        expected_result: '',
+                                        analytical_values: {},
+                                      },
+                                    });
+                                    await loadTestBook(currentProjectId);
+                                  }}
+                                >
+                                  <Add fontSize="small" />
+                                </IconButton>
+                                {tbCases.length > 1 ? (
+                                  <IconButton
+                                    size="small"
+                                    color="error"
+                                    onClick={async () => {
+                                      await apiFetch(API_ROUTES.testbook.casesDelete, {
+                                        method: 'POST',
+                                        bodyJson: { id: item.id },
+                                      });
+                                      await loadTestBook(currentProjectId);
+                                    }}
+                                  >
+                                    <Delete fontSize="small" />
+                                  </IconButton>
+                                ) : null}
+                              </Stack>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              </Stack>
+            )}
+          </Paper>
+        </Box>
+      );
     }
 
-    return <Paper sx={{ p: 3 }}><Typography variant="h5">{currentTab?.label}</Typography><Typography color="text.secondary">Vue run en préparation.</Typography></Paper>;
-  }, [activeTab, assignedEmails, currentProjectId, currentTab, load, projectName, projects, runNumber, selectedCase, selectedCaseId, tabs, tbAxes, tbCases, tbLoading, tbSaving, tbSectionByTab, versionName]);
+    return (
+      <Paper sx={{ p: 3 }}>
+        <Typography variant="h5">{currentTab?.label}</Typography>
+        <Typography color="text.secondary">Vue run en préparation.</Typography>
+      </Paper>
+    );
+  }, [
+    activeTab,
+    assignedEmails,
+    caseFilters,
+    currentProjectId,
+    currentTab,
+    filteredCases,
+    load,
+    projectName,
+    projects,
+    runNumber,
+    tabs,
+    tbAxes,
+    tbCases,
+    tbCasesDirty,
+    tbLoading,
+    tbParamsDirty,
+    tbSaving,
+    tbSectionByTab,
+    versionName,
+  ]);
 
   return (
     <Stack spacing={2}>
@@ -216,15 +780,78 @@ export default function Dashboard() {
           <Tab
             key={tab.id}
             value={tab.id}
-            label={<Stack direction="row" alignItems="center" spacing={0.5}><span>{tab.label}</span>{tab.id !== 'home' ? <IconButton size="small" onClick={(e) => { e.stopPropagation(); closeTab(tab.id); }}>×</IconButton> : null}</Stack>}
+            label={
+              <Stack direction="row" alignItems="center" spacing={0.5}>
+                <span>{tab.label}</span>
+                {tab.id !== 'home' ? (
+                  <IconButton
+                    size="small"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      closeTab(tab.id);
+                    }}
+                  >
+                    ×
+                  </IconButton>
+                ) : null}
+              </Stack>
+            }
           />
         ))}
       </Tabs>
       {body}
 
-      <Dialog open={projectModal.open} onClose={() => setProjectModal({ open: false })}><DialogTitle>{projectModal.project ? 'Edit Project' : 'New Project'}</DialogTitle><DialogContent><Stack sx={{ mt: 1 }} spacing={1}><TextField label="Project name" value={projectName} onChange={(e) => setProjectName(e.target.value)} /><TextField label="Assigned emails (comma separated)" value={assignedEmails} onChange={(e) => setAssignedEmails(e.target.value)} /></Stack></DialogContent><DialogActions><Button onClick={() => setProjectModal({ open: false })}>Cancel</Button><Button onClick={() => void submitProject()} variant="contained">Save</Button></DialogActions></Dialog>
-      <Dialog open={releaseModal.open} onClose={() => setReleaseModal({ open: false })}><DialogTitle>{releaseModal.release ? 'Edit Version' : 'New Version'}</DialogTitle><DialogContent><TextField sx={{ mt: 1 }} label="Version name" value={versionName} onChange={(e) => setVersionName(e.target.value)} /></DialogContent><DialogActions><Button onClick={() => setReleaseModal({ open: false })}>Cancel</Button><Button onClick={() => void submitRelease()} variant="contained">Save</Button></DialogActions></Dialog>
-      <Dialog open={runModal.open} onClose={() => setRunModal({ open: false })}><DialogTitle>{runModal.run ? 'Edit Run' : 'New Run'}</DialogTitle><DialogContent><TextField sx={{ mt: 1 }} label="Run number" type="number" value={runNumber} onChange={(e) => setRunNumber(e.target.value)} /></DialogContent><DialogActions><Button onClick={() => setRunModal({ open: false })}>Cancel</Button><Button onClick={() => void submitRun()} variant="contained">Save</Button></DialogActions></Dialog>
+      <Dialog open={projectModal.open} onClose={() => setProjectModal({ open: false })}>
+        <DialogTitle>{projectModal.project ? 'Edit Project' : 'New Project'}</DialogTitle>
+        <DialogContent>
+          <Stack sx={{ mt: 1 }} spacing={1}>
+            <TextField label="Project name" value={projectName} onChange={(e) => setProjectName(e.target.value)} />
+            <TextField
+              label="Assigned emails (comma separated)"
+              value={assignedEmails}
+              onChange={(e) => setAssignedEmails(e.target.value)}
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setProjectModal({ open: false })}>Cancel</Button>
+          <Button onClick={() => void submitProject()} variant="contained">
+            Save
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={releaseModal.open} onClose={() => setReleaseModal({ open: false })}>
+        <DialogTitle>{releaseModal.release ? 'Edit Version' : 'New Version'}</DialogTitle>
+        <DialogContent>
+          <TextField sx={{ mt: 1 }} label="Version name" value={versionName} onChange={(e) => setVersionName(e.target.value)} />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setReleaseModal({ open: false })}>Cancel</Button>
+          <Button onClick={() => void submitRelease()} variant="contained">
+            Save
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={runModal.open} onClose={() => setRunModal({ open: false })}>
+        <DialogTitle>{runModal.run ? 'Edit Run' : 'New Run'}</DialogTitle>
+        <DialogContent>
+          <TextField
+            sx={{ mt: 1 }}
+            label="Run number"
+            type="number"
+            value={runNumber}
+            onChange={(e) => setRunNumber(e.target.value)}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setRunModal({ open: false })}>Cancel</Button>
+          <Button onClick={() => void submitRun()} variant="contained">
+            Save
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Stack>
   );
 }
