@@ -94,10 +94,17 @@ CREATE TABLE IF NOT EXISTS test_runs (
 CREATE TABLE IF NOT EXISTS test_run_cases (
   id INT AUTO_INCREMENT PRIMARY KEY,
   test_run_id INT NOT NULL,
-  test_case_id INT NOT NULL,
+  test_case_id INT NULL,
+  case_number INT NOT NULL DEFAULT 1,
+  steps TEXT NOT NULL,
+  expected_result TEXT NULL,
+  analytical_values_json JSON NULL,
+  attachments_json JSON NULL,
+  is_active TINYINT(1) NOT NULL DEFAULT 1,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (test_run_id) REFERENCES test_runs(id) ON DELETE CASCADE,
-  FOREIGN KEY (test_case_id) REFERENCES test_cases(id)
+  FOREIGN KEY (test_case_id) REFERENCES test_cases(id),
+  KEY idx_test_run_cases_run_order (test_run_id, case_number)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS test_run_results (

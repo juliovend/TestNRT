@@ -28,6 +28,7 @@ import {
 } from '@mui/material';
 import { useEffect, useMemo, useState } from 'react';
 import { API_ROUTES, apiFetch } from '../api/client';
+import RunTabView from '../components/RunTabView';
 import type { Project, Release, RunItem, TestBookAxis, TestBookCase } from '../types';
 
 type TabItem = { id: string; label: string; kind: 'home' | 'testbook' | 'run' };
@@ -323,18 +324,6 @@ export default function Dashboard() {
                         >
                           <Delete fontSize="small" />
                         </IconButton>
-                        <IconButton
-                          size="small"
-                          onClick={() => {
-                            const tabId = `run-${release.id}`;
-                            if (!tabs.some((t) => t.id === tabId)) {
-                              setTabs((old) => [...old, { id: tabId, label: `${project.name} - Run`, kind: 'run' }]);
-                            }
-                            setActiveTab(tabId);
-                          }}
-                        >
-                          <PlayArrow fontSize="small" />
-                        </IconButton>
                       </Stack>
                     </Stack>
 
@@ -351,6 +340,18 @@ export default function Dashboard() {
                               }}
                             >
                               <Edit fontSize="small" />
+                            </IconButton>
+                            <IconButton
+                              size="small"
+                              onClick={() => {
+                                const tabId = `run-${run.id}`;
+                                if (!tabs.some((t) => t.id === tabId)) {
+                                  setTabs((oldTabs) => [...oldTabs, { id: tabId, label: `${project.name} - ${release.version} - Run ${run.run_number}`, kind: 'run' }]);
+                                }
+                                setActiveTab(tabId);
+                              }}
+                            >
+                              <PlayArrow fontSize="small" />
                             </IconButton>
                             <IconButton
                               size="small"
@@ -744,12 +745,12 @@ export default function Dashboard() {
       );
     }
 
-    return (
-      <Paper sx={{ p: 3 }}>
-        <Typography variant="h5">{currentTab?.label}</Typography>
-        <Typography color="text.secondary">Vue run en préparation.</Typography>
-      </Paper>
-    );
+    if (currentTab?.kind === 'run') {
+      const runId = Number(currentTab.id.replace('run-', ''));
+      return <RunTabView runId={runId} />;
+    }
+
+    return null;
   }, [
     activeTab,
     assignedEmails,
