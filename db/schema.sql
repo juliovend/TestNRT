@@ -41,15 +41,40 @@ CREATE TABLE IF NOT EXISTS releases (
 CREATE TABLE IF NOT EXISTS test_cases (
   id INT AUTO_INCREMENT PRIMARY KEY,
   project_id INT NOT NULL,
+  case_number INT NOT NULL DEFAULT 1,
   title VARCHAR(255) NOT NULL,
   steps TEXT NOT NULL,
   expected_result TEXT NULL,
+  analytical_values_json JSON NULL,
+  attachments_json JSON NULL,
   is_active TINYINT(1) NOT NULL DEFAULT 1,
   created_by INT NOT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
-  FOREIGN KEY (created_by) REFERENCES users(id)
+  FOREIGN KEY (created_by) REFERENCES users(id),
+  KEY idx_test_cases_project_order (project_id, case_number)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+
+CREATE TABLE IF NOT EXISTS test_book_axes (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  project_id INT NOT NULL,
+  level_number INT NOT NULL,
+  label VARCHAR(190) NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+  UNIQUE KEY uniq_project_axis_level (project_id, level_number)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS test_book_axis_values (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  axis_id INT NOT NULL,
+  value_label VARCHAR(190) NOT NULL,
+  sort_order INT NOT NULL DEFAULT 1,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (axis_id) REFERENCES test_book_axes(id) ON DELETE CASCADE,
+  KEY idx_axis_values_order (axis_id, sort_order)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS test_runs (

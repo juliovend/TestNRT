@@ -57,3 +57,27 @@ export interface TestRun {
   created_at: string;
   summary: RunSummary;
 }
+
+export interface TestBookAxisValue {
+  id?: number;
+  value_label: string;
+  sort_order?: number;
+}
+
+export interface TestBookAxis {
+  id?: number;
+  level_number: number;
+  label: string;
+  values: TestBookAxisValue[];
+}
+
+export interface TestBookCase {
+  id: number;
+  project_id: number;
+  case_number: number;
+  steps: string;
+  expected_result: string | null;
+  analytical_values: Record<string, string>;
+  attachments: string[];
+  is_active: number;
+}
