@@ -19,7 +19,7 @@ $projectId = (int) $release['project_id'];
 require_project_membership($projectId, (int) $user['id']);
 
 $stmt = $pdo->prepare(
-    'SELECT tr.id, tr.project_id, tr.release_id, tr.created_by, tr.status, tr.created_at,
+    'SELECT tr.id, tr.project_id, tr.release_id, tr.run_number, tr.created_by, tr.status, tr.created_at,
         COUNT(trc.id) AS total,
         SUM(CASE WHEN trr.status = "PASS" THEN 1 ELSE 0 END) AS pass,
         SUM(CASE WHEN trr.status = "FAIL" THEN 1 ELSE 0 END) AS fail,
@@ -30,8 +30,8 @@ $stmt = $pdo->prepare(
      LEFT JOIN test_run_cases trc ON trc.test_run_id = tr.id
      LEFT JOIN test_run_results trr ON trr.test_run_case_id = trc.id
      WHERE tr.release_id = ?
-     GROUP BY tr.id, tr.project_id, tr.release_id, tr.created_by, tr.status, tr.created_at
-     ORDER BY tr.id DESC'
+     GROUP BY tr.id, tr.project_id, tr.release_id, tr.run_number, tr.created_by, tr.status, tr.created_at
+     ORDER BY tr.run_number ASC'
 );
 $stmt->execute([$releaseId]);
 $runs = $stmt->fetchAll();
@@ -41,6 +41,7 @@ $runs = array_map(function ($row) {
         'id' => (int) $row['id'],
         'project_id' => (int) $row['project_id'],
         'release_id' => (int) $row['release_id'],
+        'run_number' => (int) $row['run_number'],
         'created_by' => (int) $row['created_by'],
         'status' => $row['status'],
         'created_at' => $row['created_at'],

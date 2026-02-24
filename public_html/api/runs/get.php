@@ -13,10 +13,11 @@ if (!$run) {
 }
 require_project_membership((int) $run['project_id'], (int) $user['id']);
 
-$resultsStmt = db()->prepare('SELECT trc.id AS test_run_case_id, tc.title, tc.steps, trr.status, trr.comment
+$resultsStmt = db()->prepare('SELECT trc.id AS test_run_case_id, tc.title, tc.steps, trr.status, trr.comment, trr.tested_at, u.name AS tester_name, u.email AS tester_email
 FROM test_run_cases trc
 INNER JOIN test_cases tc ON tc.id = trc.test_case_id
 INNER JOIN test_run_results trr ON trr.test_run_case_id = trc.id
+LEFT JOIN users u ON u.id = trr.tester_id
 WHERE trc.test_run_id = ?
 ORDER BY trc.id');
 $resultsStmt->execute([$runId]);

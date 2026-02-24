@@ -20,7 +20,7 @@ import type { User } from '../types';
 
 const drawerWidth = 260;
 
-const items = [{ path: '/dashboard', label: 'Studio', icon: <DashboardRoundedIcon /> }];
+const items = [{ path: '/dashboard', label: 'My Projects', icon: <DashboardRoundedIcon /> }];
 
 interface Props {
   user: User;

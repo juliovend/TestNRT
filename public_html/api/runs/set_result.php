@@ -20,6 +20,6 @@ if (!$row) {
 }
 require_project_membership((int) $row['project_id'], (int) $user['id']);
 
-$update = db()->prepare('UPDATE test_run_results SET status = ?, comment = ?, updated_at = CURRENT_TIMESTAMP WHERE test_run_case_id = ?');
-$update->execute([$status, $comment ?: null, $testRunCaseId]);
+$update = db()->prepare('UPDATE test_run_results SET status = ?, comment = ?, tester_id = ?, tested_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE test_run_case_id = ?');
+$update->execute([$status, $comment ?: null, $user['id'], $testRunCaseId]);
 json_response(['success' => true]);
