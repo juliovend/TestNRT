@@ -1,327 +1,152 @@
+import { Add, Delete, Edit, MenuBook, PlayArrow, Refresh } from '@mui/icons-material';
 import {
-  Alert,
-  Box,
-  Button,
-  Card,
-  CardContent,
-  Chip,
-  Divider,
-  List,
-  ListItemButton,
-  ListItemText,
-  Paper,
-  Stack,
-  TextField,
-  ToggleButton,
-  ToggleButtonGroup,
-  Typography,
+  Alert, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, Paper,
+  Stack, Tab, Tabs, TextField, Typography,
 } from '@mui/material';
-import AddRoundedIcon from '@mui/icons-material/AddRounded';
-import PlayArrowRoundedIcon from '@mui/icons-material/PlayArrowRounded';
 import { useEffect, useMemo, useState } from 'react';
 import { API_ROUTES, apiFetch } from '../api/client';
-import type { Project, Release, TestCase, TestRun } from '../types';
+import type { Project, Release, RunItem } from '../types';
 
-type RunStatus = 'PASS' | 'FAIL' | 'BLOCKED' | 'SKIPPED' | 'NOT_RUN';
-
-interface RunResult {
-  test_run_case_id: number;
-  title: string;
-  steps: string;
-  status: RunStatus;
-  comment: string | null;
-}
-
-interface RunDetails {
-  summary: TestRun['summary'];
-  results: RunResult[];
-}
-
-const EXEC_STATUS: Exclude<RunStatus, 'NOT_RUN'>[] = ['PASS', 'FAIL', 'BLOCKED', 'SKIPPED'];
+type TabItem = { id: string; label: string; kind: 'home' | 'testbook' | 'run' };
 
 export default function Dashboard() {
   const [projects, setProjects] = useState<Project[]>([]);
-  const [releases, setReleases] = useState<Release[]>([]);
-  const [runs, setRuns] = useState<TestRun[]>([]);
-  const [testCases, setTestCases] = useState<TestCase[]>([]);
-  const [runDetails, setRunDetails] = useState<RunDetails | null>(null);
-  const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
-  const [selectedReleaseId, setSelectedReleaseId] = useState<number | null>(null);
-  const [selectedRunId, setSelectedRunId] = useState<number | null>(null);
-  const [selectedRunCaseId, setSelectedRunCaseId] = useState<number | null>(null);
-  const [comment, setComment] = useState('');
-  const [error, setError] = useState<string | null>(null);
+  const [error] = useState<string | null>(null);
+  const [tabs, setTabs] = useState<TabItem[]>([{ id: 'home', label: 'My Projects', kind: 'home' }]);
+  const [activeTab, setActiveTab] = useState('home');
 
-  const [newProjectName, setNewProjectName] = useState('');
-  const [newReleaseVersion, setNewReleaseVersion] = useState('');
-  const [newCaseTitle, setNewCaseTitle] = useState('');
-  const [newCaseSteps, setNewCaseSteps] = useState('');
+  const [projectModal, setProjectModal] = useState<{ open: boolean; project?: Project }>({ open: false });
+  const [projectName, setProjectName] = useState('');
+  const [assignedEmails, setAssignedEmails] = useState('');
 
-  const loadProjects = async () => {
-    const data = await apiFetch<{ projects: Project[] }>(API_ROUTES.projects.list);
+  const [releaseModal, setReleaseModal] = useState<{ open: boolean; projectId?: number; release?: Release }>({ open: false });
+  const [versionName, setVersionName] = useState('');
+
+  const [runModal, setRunModal] = useState<{ open: boolean; projectId?: number; releaseId?: number; run?: RunItem }>({ open: false });
+  const [runNumber, setRunNumber] = useState('');
+
+  const load = async () => {
+    const data = await apiFetch<{ projects: Project[] }>(API_ROUTES.dashboard.home);
     setProjects(data.projects);
-    if (!selectedProjectId && data.projects[0]) {
-      setSelectedProjectId(data.projects[0].id);
+  };
+
+  useEffect(() => { void load(); }, []);
+
+  const submitProject = async () => {
+    const emails = assignedEmails.split(',').map((e) => e.trim()).filter(Boolean);
+    if (projectModal.project) {
+      await apiFetch(API_ROUTES.projects.update, { method: 'POST', bodyJson: { project_id: projectModal.project.id, name: projectName, assigned_emails: emails } });
+    } else {
+      await apiFetch(API_ROUTES.projects.create, { method: 'POST', bodyJson: { name: projectName, assigned_emails: emails } });
     }
+    setProjectModal({ open: false });
+    await load();
   };
 
-  const loadProjectLinkedData = async (projectId: number) => {
-    const [releaseData, testCaseData] = await Promise.all([
-      apiFetch<{ releases: Release[] }>(API_ROUTES.releases.list(projectId)),
-      apiFetch<{ test_cases: TestCase[] }>(API_ROUTES.testcases.list(projectId)),
-    ]);
-    setReleases(releaseData.releases);
-    setTestCases(testCaseData.test_cases);
-
-    const releaseToSelect = releaseData.releases.find((release) => release.id === selectedReleaseId) ?? releaseData.releases[0] ?? null;
-    setSelectedReleaseId(releaseToSelect?.id ?? null);
-  };
-
-  const loadRuns = async (releaseId: number) => {
-    const data = await apiFetch<{ runs: TestRun[] }>(API_ROUTES.runs.list(releaseId));
-    setRuns(data.runs);
-    const nextRun = data.runs.find((run) => run.id === selectedRunId) ?? data.runs[0] ?? null;
-    setSelectedRunId(nextRun?.id ?? null);
-  };
-
-  const loadRunDetails = async (runId: number) => {
-    const data = await apiFetch<RunDetails>(API_ROUTES.runs.get(runId));
-    setRunDetails(data);
-    const candidate = data.results.find((result) => result.status === 'NOT_RUN') ?? data.results[0] ?? null;
-    setSelectedRunCaseId(candidate?.test_run_case_id ?? null);
-    setComment(candidate?.comment ?? '');
-  };
-
-  useEffect(() => {
-    void loadProjects();
-  }, []);
-
-  useEffect(() => {
-    if (!selectedProjectId) return;
-    void loadProjectLinkedData(selectedProjectId);
-  }, [selectedProjectId]);
-
-  useEffect(() => {
-    if (!selectedReleaseId) return;
-    void loadRuns(selectedReleaseId);
-  }, [selectedReleaseId]);
-
-  useEffect(() => {
-    if (!selectedRunId) {
-      setRunDetails(null);
-      return;
+  const submitRelease = async () => {
+    if (!releaseModal.projectId) return;
+    if (releaseModal.release) {
+      await apiFetch(API_ROUTES.releases.update, { method: 'POST', bodyJson: { release_id: releaseModal.release.id, version: versionName } });
+    } else {
+      await apiFetch(API_ROUTES.releases.create, { method: 'POST', bodyJson: { project_id: releaseModal.projectId, version: versionName } });
     }
-    void loadRunDetails(selectedRunId);
-  }, [selectedRunId]);
-
-  const createProject = async () => {
-    if (!newProjectName.trim()) return;
-    await apiFetch(API_ROUTES.projects.create, { method: 'POST', bodyJson: { name: newProjectName } });
-    setNewProjectName('');
-    await loadProjects();
+    setReleaseModal({ open: false });
+    await load();
   };
 
-  const createRelease = async () => {
-    if (!selectedProjectId || !newReleaseVersion.trim()) return;
-    await apiFetch(API_ROUTES.releases.create, {
-      method: 'POST',
-      bodyJson: { project_id: selectedProjectId, version: newReleaseVersion },
-    });
-    setNewReleaseVersion('');
-    await loadProjectLinkedData(selectedProjectId);
-  };
-
-  const createRun = async () => {
-    if (!selectedProjectId || !selectedReleaseId) return;
-    const payload = await apiFetch<{ run_id: number }>(API_ROUTES.runs.create, {
-      method: 'POST',
-      bodyJson: { project_id: selectedProjectId, release_id: selectedReleaseId },
-    });
-    await loadRuns(selectedReleaseId);
-    setSelectedRunId(payload.run_id);
-  };
-
-  const createTestCase = async () => {
-    if (!selectedProjectId || !newCaseTitle.trim() || !newCaseSteps.trim()) return;
-    await apiFetch(API_ROUTES.testcases.create, {
-      method: 'POST',
-      bodyJson: {
-        project_id: selectedProjectId,
-        title: newCaseTitle,
-        steps: newCaseSteps,
-        expected_result: '',
-      },
-    });
-    setNewCaseTitle('');
-    setNewCaseSteps('');
-    await loadProjectLinkedData(selectedProjectId);
-  };
-
-  const updateRunCase = async (status: Exclude<RunStatus, 'NOT_RUN'>) => {
-    if (!selectedRunCaseId || !selectedRunId) return;
-    setError(null);
-    try {
-      await apiFetch(API_ROUTES.runs.setResult, {
-        method: 'POST',
-        bodyJson: { test_run_case_id: selectedRunCaseId, status, comment },
-      });
-      await loadRunDetails(selectedRunId);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Erreur inconnue');
+  const submitRun = async () => {
+    if (!runModal.projectId || !runModal.releaseId) return;
+    if (runModal.run) {
+      await apiFetch(API_ROUTES.runs.update, { method: 'POST', bodyJson: { run_id: runModal.run.id, run_number: Number(runNumber) } });
+    } else {
+      await apiFetch(API_ROUTES.runs.create, { method: 'POST', bodyJson: { project_id: runModal.projectId, release_id: runModal.releaseId, run_number: Number(runNumber) } });
     }
+    setRunModal({ open: false });
+    await load();
   };
 
-  const selectedRunCase = useMemo(
-    () => runDetails?.results.find((item) => item.test_run_case_id === selectedRunCaseId) ?? null,
-    [runDetails, selectedRunCaseId],
-  );
+  const body = useMemo(() => {
+    if (activeTab === 'home') {
+      return (
+        <Stack spacing={2}>
+          <Stack direction="row" justifyContent="space-between">
+            <Typography variant="h4">My Projects</Typography>
+            <Stack direction="row" spacing={1}>
+              <Button startIcon={<Refresh />} onClick={() => void load()}>Refresh</Button>
+              <Button variant="contained" startIcon={<Add />} onClick={() => { setProjectName(''); setAssignedEmails(''); setProjectModal({ open: true }); }}>New Project</Button>
+            </Stack>
+          </Stack>
+          {projects.map((project) => (
+            <Paper key={project.id} sx={{ p: 2 }}>
+              <Stack spacing={1.25}>
+                <Stack direction="row" justifyContent="space-between" alignItems="center">
+                  <Typography variant="h6">{project.name}</Typography>
+                  <Stack direction="row" spacing={1}>
+                    <IconButton onClick={() => {
+                      const tabId = `tb-${project.id}`;
+                      if (!tabs.some((t) => t.id === tabId)) setTabs((old) => [...old, { id: tabId, label: `${project.name} - Test Book`, kind: 'testbook' }]);
+                      setActiveTab(tabId);
+                    }}><MenuBook /></IconButton>
+                    <IconButton onClick={() => { setProjectModal({ open: true, project }); setProjectName(project.name); setAssignedEmails(project.assigned_emails.join(', ')); }}><Edit /></IconButton>
+                    <IconButton color="error" onClick={async () => { if (confirm('Supprimer ce projet ?')) { await apiFetch(API_ROUTES.projects.delete, { method: 'POST', bodyJson: { project_id: project.id } }); await load(); } }}><Delete /></IconButton>
+                  </Stack>
+                </Stack>
+                <Typography variant="body2">Users: {project.assigned_emails.join(', ')}</Typography>
+
+                {(project.releases ?? []).map((release) => (
+                  <Paper key={release.id} variant="outlined" sx={{ p: 1.5, ml: 2 }}>
+                    <Stack spacing={1}>
+                      <Stack direction="row" justifyContent="space-between" alignItems="center">
+                        <Typography fontWeight={700}>Version {release.version}</Typography>
+                        <Stack direction="row" spacing={1}>
+                          <IconButton size="small" onClick={() => { setReleaseModal({ open: true, projectId: project.id, release }); setVersionName(release.version); }}><Edit fontSize="small" /></IconButton>
+                          <IconButton size="small" color="error" onClick={async () => { if (confirm('Supprimer cette version ?')) { await apiFetch(API_ROUTES.releases.delete, { method: 'POST', bodyJson: { release_id: release.id } }); await load(); } }}><Delete fontSize="small" /></IconButton>
+                        </Stack>
+                      </Stack>
+                      {(release.runs ?? []).map((run) => (
+                        <Stack key={run.id} direction="row" spacing={1} alignItems="center" sx={{ ml: 2 }}>
+                          <Typography>Run #{run.run_number}</Typography>
+                          <Chip size="small" label={`T:${run.summary.total}`} /><Chip size="small" color="success" label={`P:${run.summary.pass}`} /><Chip size="small" color="error" label={`F:${run.summary.fail}`} /><Chip size="small" color="warning" label={`ToDo:${run.summary.not_run}`} />
+                          <IconButton size="small" onClick={() => {
+                            const tabId = `run-${run.id}`;
+                            if (!tabs.some((t) => t.id === tabId)) setTabs((old) => [...old, { id: tabId, label: `${project.name} - ${release.version} - Run ${run.run_number}`, kind: 'run' }]);
+                            setActiveTab(tabId);
+                          }}><PlayArrow fontSize="small" /></IconButton>
+                          <IconButton size="small" onClick={() => { setRunModal({ open: true, projectId: project.id, releaseId: release.id, run }); setRunNumber(String(run.run_number)); }}><Edit fontSize="small" /></IconButton>
+                          <IconButton size="small" color="error" onClick={async () => { if (confirm('Supprimer ce run ?')) { await apiFetch(API_ROUTES.runs.delete, { method: 'POST', bodyJson: { run_id: run.id } }); await load(); } }}><Delete fontSize="small" /></IconButton>
+                        </Stack>
+                      ))}
+                      <Button size="small" startIcon={<Add />} onClick={() => { setRunModal({ open: true, projectId: project.id, releaseId: release.id }); setRunNumber(''); }}>New Run</Button>
+                    </Stack>
+                  </Paper>
+                ))}
+                <Button size="small" startIcon={<Add />} onClick={() => { setReleaseModal({ open: true, projectId: project.id }); setVersionName(''); }}>New Version</Button>
+              </Stack>
+            </Paper>
+          ))}
+        </Stack>
+      );
+    }
+
+    const current = tabs.find((t) => t.id === activeTab);
+    return <Paper sx={{ p: 3 }}><Typography variant="h5">{current?.label}</Typography><Typography color="text.secondary">Work in progress: auto-save tabs and side navigation target are initialized from homepage actions.</Typography></Paper>;
+  }, [activeTab, projects, tabs]);
 
   return (
-    <Stack spacing={2.5}>
-      <Card sx={{ background: 'linear-gradient(120deg, #111827 0%, #0f172a 50%, #1e1b4b 100%)' }}>
-        <CardContent>
-          <Typography variant="h4" fontWeight={800}>NRT Manager 🌙</Typography>
-          <Typography color="text.secondary">Vue unifiée de vos projets, releases, runs et cas de tests ✨</Typography>
-        </CardContent>
-      </Card>
-
+    <Stack spacing={2}>
       {error ? <Alert severity="error">{error}</Alert> : null}
+      <Tabs value={activeTab} onChange={(_, v) => setActiveTab(v)}>
+        {tabs.map((tab) => (
+          <Tab key={tab.id} value={tab.id} label={<Stack direction="row" alignItems="center" spacing={0.5}><span>{tab.label}</span>{tab.id !== 'home' && <IconButton size="small" onClick={(e) => { e.stopPropagation(); setTabs((old) => old.filter((t) => t.id !== tab.id)); if (activeTab === tab.id) setActiveTab('home'); }}>×</IconButton>}</Stack>} />
+        ))}
+      </Tabs>
+      {body}
 
-      <Stack direction={{ xs: 'column', xl: 'row' }} spacing={2} alignItems="stretch">
-        <Paper sx={{ p: 2, width: { xs: '100%', xl: 360 } }}>
-          <Stack spacing={1.5}>
-            <Typography variant="h6">Projets 📁</Typography>
-            <Stack direction="row" spacing={1}>
-              <TextField label="Nouveau projet" value={newProjectName} onChange={(e) => setNewProjectName(e.target.value)} fullWidth />
-              <Button variant="contained" onClick={createProject}><AddRoundedIcon /></Button>
-            </Stack>
-            <List dense sx={{ maxHeight: 360, overflow: 'auto' }}>
-              {projects.map((project) => (
-                <ListItemButton key={project.id} selected={project.id === selectedProjectId} onClick={() => setSelectedProjectId(project.id)}>
-                  <ListItemText primary={project.name} secondary={project.description || 'Sans description'} />
-                </ListItemButton>
-              ))}
-            </List>
-          </Stack>
-        </Paper>
+      <Dialog open={projectModal.open} onClose={() => setProjectModal({ open: false })}><DialogTitle>{projectModal.project ? 'Edit Project' : 'New Project'}</DialogTitle><DialogContent><Stack sx={{ mt: 1 }} spacing={1}><TextField label="Project name" value={projectName} onChange={(e) => setProjectName(e.target.value)} /><TextField label="Assigned emails (comma separated)" value={assignedEmails} onChange={(e) => setAssignedEmails(e.target.value)} /></Stack></DialogContent><DialogActions><Button onClick={() => setProjectModal({ open: false })}>Cancel</Button><Button onClick={() => void submitProject()} variant="contained">Save</Button></DialogActions></Dialog>
 
-        <Paper sx={{ p: 2, flex: 1 }}>
-          <Stack spacing={2}>
-            <Typography variant="h6">Releases 🧩</Typography>
-            <Stack direction="row" spacing={1}>
-              <TextField label="Nouvelle release" value={newReleaseVersion} onChange={(e) => setNewReleaseVersion(e.target.value)} fullWidth disabled={!selectedProjectId} />
-              <Button variant="contained" onClick={createRelease} disabled={!selectedProjectId}><AddRoundedIcon /></Button>
-            </Stack>
+      <Dialog open={releaseModal.open} onClose={() => setReleaseModal({ open: false })}><DialogTitle>{releaseModal.release ? 'Edit Version' : 'New Version'}</DialogTitle><DialogContent><TextField sx={{ mt: 1 }} label="Version name" value={versionName} onChange={(e) => setVersionName(e.target.value)} /></DialogContent><DialogActions><Button onClick={() => setReleaseModal({ open: false })}>Cancel</Button><Button onClick={() => void submitRelease()} variant="contained">Save</Button></DialogActions></Dialog>
 
-            <List dense sx={{ maxHeight: 180, overflow: 'auto', border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
-              {releases.map((release) => (
-                <ListItemButton key={release.id} selected={release.id === selectedReleaseId} onClick={() => setSelectedReleaseId(release.id)}>
-                  <ListItemText primary={release.version} secondary={release.notes || 'Pas de note'} />
-                </ListItemButton>
-              ))}
-            </List>
-
-            <Divider />
-
-            <Stack spacing={1}>
-              <Stack direction="row" justifyContent="space-between" alignItems="center">
-                <Typography variant="h6">Runs ▶️</Typography>
-                <Button variant="contained" startIcon={<PlayArrowRoundedIcon />} onClick={createRun} disabled={!selectedReleaseId || !selectedProjectId}>
-                  Nouveau run
-                </Button>
-              </Stack>
-              <List dense sx={{ maxHeight: 200, overflow: 'auto', border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
-                {runs.map((run) => (
-                  <ListItemButton key={run.id} selected={run.id === selectedRunId} onClick={() => setSelectedRunId(run.id)}>
-                    <ListItemText
-                      primary={`Run #${run.id}`}
-                      secondary={
-                        <Stack direction="row" spacing={0.8} flexWrap="wrap" useFlexGap>
-                          <Chip size="small" label={`Total ${run.summary.total}`} />
-                          <Chip size="small" color="success" variant="outlined" label={`✅ ${run.summary.pass}`} />
-                          <Chip size="small" color="error" variant="outlined" label={`❌ ${run.summary.fail}`} />
-                          <Chip size="small" color="warning" variant="outlined" label={`⏳ ${run.summary.not_run}`} />
-                        </Stack>
-                      }
-                    />
-                  </ListItemButton>
-                ))}
-              </List>
-            </Stack>
-          </Stack>
-        </Paper>
-      </Stack>
-
-      <Stack direction={{ xs: 'column', xl: 'row' }} spacing={2}>
-        <Paper sx={{ p: 2, width: { xs: '100%', xl: 420 } }}>
-          <Stack spacing={1.5}>
-            <Typography variant="h6">Cas de tests du projet 🧪</Typography>
-            <TextField label="Titre" value={newCaseTitle} onChange={(e) => setNewCaseTitle(e.target.value)} disabled={!selectedProjectId} />
-            <TextField label="Étapes" value={newCaseSteps} onChange={(e) => setNewCaseSteps(e.target.value)} minRows={3} multiline disabled={!selectedProjectId} />
-            <Button variant="outlined" onClick={createTestCase} disabled={!selectedProjectId}>Ajouter au projet</Button>
-            <List dense sx={{ maxHeight: 220, overflow: 'auto', border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
-              {testCases.map((testCase) => (
-                <ListItemText key={testCase.id} primary={testCase.title} secondary={testCase.steps} sx={{ px: 1.5, py: 0.75 }} />
-              ))}
-            </List>
-          </Stack>
-        </Paper>
-
-        <Paper sx={{ p: 2, flex: 1 }}>
-          <Stack spacing={1.5}>
-            <Typography variant="h6">Exécution du run sélectionné ⚡</Typography>
-            {runDetails ? (
-              <>
-                <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                  <Chip label={`Total ${runDetails.summary.total}`} />
-                  <Chip color="success" label={`PASS ${runDetails.summary.pass}`} />
-                  <Chip color="error" label={`FAIL ${runDetails.summary.fail}`} />
-                  <Chip color="warning" label={`NOT_RUN ${runDetails.summary.not_run}`} />
-                  <Chip label={`BLOCKED ${runDetails.summary.blocked}`} />
-                </Stack>
-
-                <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
-                  <List dense sx={{ width: { xs: '100%', md: 360 }, maxHeight: 300, overflow: 'auto', border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
-                    {runDetails.results.map((result) => (
-                      <ListItemButton
-                        key={result.test_run_case_id}
-                        selected={result.test_run_case_id === selectedRunCaseId}
-                        onClick={() => {
-                          setSelectedRunCaseId(result.test_run_case_id);
-                          setComment(result.comment ?? '');
-                        }}
-                      >
-                        <ListItemText primary={result.title} secondary={`Statut: ${result.status}`} />
-                      </ListItemButton>
-                    ))}
-                  </List>
-
-                  <Box sx={{ flex: 1 }}>
-                    {selectedRunCase ? (
-                      <Stack spacing={1.2}>
-                        <Typography fontWeight={700}>{selectedRunCase.title}</Typography>
-                        <Typography variant="body2" color="text.secondary">{selectedRunCase.steps}</Typography>
-                        <TextField label="Commentaire" value={comment} onChange={(e) => setComment(e.target.value)} multiline minRows={2} />
-                        <ToggleButtonGroup exclusive value={null}>
-                          {EXEC_STATUS.map((status) => (
-                            <ToggleButton key={status} value={status} onClick={() => void updateRunCase(status)}>
-                              {status}
-                            </ToggleButton>
-                          ))}
-                        </ToggleButtonGroup>
-                      </Stack>
-                    ) : (
-                      <Typography color="text.secondary">Sélectionnez un cas de test à exécuter.</Typography>
-                    )}
-                  </Box>
-                </Stack>
-              </>
-            ) : (
-              <Typography color="text.secondary">Sélectionnez d'abord un run depuis la liste.</Typography>
-            )}
-          </Stack>
-        </Paper>
-      </Stack>
+      <Dialog open={runModal.open} onClose={() => setRunModal({ open: false })}><DialogTitle>{runModal.run ? 'Edit Run' : 'New Run'}</DialogTitle><DialogContent><TextField sx={{ mt: 1 }} label="Run number" type="number" value={runNumber} onChange={(e) => setRunNumber(e.target.value)} /></DialogContent><DialogActions><Button onClick={() => setRunModal({ open: false })}>Cancel</Button><Button onClick={() => void submitRun()} variant="contained">Save</Button></DialogActions></Dialog>
     </Stack>
   );
 }

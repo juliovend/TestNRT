@@ -56,12 +56,14 @@ CREATE TABLE IF NOT EXISTS test_runs (
   id INT AUTO_INCREMENT PRIMARY KEY,
   project_id INT NOT NULL,
   release_id INT NOT NULL,
+  run_number INT NOT NULL,
   created_by INT NOT NULL,
   status ENUM('IN_PROGRESS', 'DONE') NOT NULL DEFAULT 'IN_PROGRESS',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
   FOREIGN KEY (release_id) REFERENCES releases(id) ON DELETE CASCADE,
-  FOREIGN KEY (created_by) REFERENCES users(id)
+  FOREIGN KEY (created_by) REFERENCES users(id),
+  UNIQUE KEY uniq_run_number_per_release (release_id, run_number)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS test_run_cases (
@@ -78,6 +80,9 @@ CREATE TABLE IF NOT EXISTS test_run_results (
   test_run_case_id INT NOT NULL UNIQUE,
   status ENUM('NOT_RUN', 'PASS', 'FAIL', 'BLOCKED', 'SKIPPED') NOT NULL DEFAULT 'NOT_RUN',
   comment TEXT NULL,
+  tester_id INT NULL,
+  tested_at TIMESTAMP NULL,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  FOREIGN KEY (test_run_case_id) REFERENCES test_run_cases(id) ON DELETE CASCADE
+  FOREIGN KEY (test_run_case_id) REFERENCES test_run_cases(id) ON DELETE CASCADE,
+  FOREIGN KEY (tester_id) REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

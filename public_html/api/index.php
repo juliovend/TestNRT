@@ -11,16 +11,23 @@ $routes = [
     'auth.me' => ['method' => 'GET', 'file' => 'auth/me.php'],
     'projects.list' => ['method' => 'GET', 'file' => 'projects/list.php'],
     'projects.create' => ['method' => 'POST', 'file' => 'projects/create.php'],
+    'projects.update' => ['method' => 'POST', 'file' => 'projects/update.php'],
+    'projects.delete' => ['method' => 'POST', 'file' => 'projects/delete.php'],
     'releases.list' => ['method' => 'GET', 'file' => 'releases/list.php'],
     'releases.create' => ['method' => 'POST', 'file' => 'releases/create.php'],
+    'releases.update' => ['method' => 'POST', 'file' => 'releases/update.php'],
+    'releases.delete' => ['method' => 'POST', 'file' => 'releases/delete.php'],
     'testcases.list' => ['method' => 'GET', 'file' => 'test_cases/list.php'],
     'testcases.create' => ['method' => 'POST', 'file' => 'test_cases/create.php'],
     'testcases.update' => ['method' => 'POST', 'file' => 'test_cases/update.php'],
     'runs.create' => ['method' => 'POST', 'file' => 'runs/create.php'],
+    'runs.update' => ['method' => 'POST', 'file' => 'runs/update.php'],
+    'runs.delete' => ['method' => 'POST', 'file' => 'runs/delete.php'],
     'runs.list' => ['method' => 'GET', 'file' => 'runs/list.php'],
     'runs.get' => ['method' => 'GET', 'file' => 'runs/get.php'],
     'runs.export_csv' => ['method' => 'GET', 'file' => 'runs/export_csv.php'],
     'runs.set_result' => ['method' => 'POST', 'file' => 'runs/set_result.php'],
+    'dashboard.home' => ['method' => 'GET', 'file' => 'dashboard/home.php'],
 ];
 
 if ($route !== null) {

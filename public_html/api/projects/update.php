@@ -1,17 +1,15 @@
 <?php
 $user = require_login();
 $body = read_json_body();
+$projectId = (int) ($body['project_id'] ?? 0);
 $name = trim($body['name'] ?? '');
 $description = trim($body['description'] ?? '');
 $assignedEmails = $body['assigned_emails'] ?? [];
 
-if ($name === '') {
-    json_response(['message' => 'Le nom du projet est obligatoire'], 422);
+if ($projectId <= 0 || $name === '' || !is_array($assignedEmails)) {
+    json_response(['message' => 'project_id, name et assigned_emails valides sont obligatoires'], 422);
 }
-
-if (!is_array($assignedEmails)) {
-    json_response(['message' => 'assigned_emails doit être une liste'], 422);
-}
+require_project_membership($projectId, (int) $user['id']);
 
 $normalizedEmails = [];
 foreach ($assignedEmails as $email) {
@@ -27,9 +25,10 @@ $pdo = db();
 $pdo->beginTransaction();
 
 try {
-    $insert = $pdo->prepare('INSERT INTO projects(name, description, created_by) VALUES (?, ?, ?)');
-    $insert->execute([$name, $description ?: null, $user['id']]);
-    $projectId = (int) $pdo->lastInsertId();
+    $updateProject = $pdo->prepare('UPDATE projects SET name = ?, description = ? WHERE id = ?');
+    $updateProject->execute([$name, $description ?: null, $projectId]);
+
+    $pdo->prepare('DELETE FROM project_members WHERE project_id = ?')->execute([$projectId]);
 
     $findUser = $pdo->prepare('SELECT id FROM users WHERE email = ?');
     $createUser = $pdo->prepare('INSERT INTO users(email, password_hash, name) VALUES (?, NULL, NULL)');
@@ -44,14 +43,13 @@ try {
             $createUser->execute([$email]);
             $userId = (int) $pdo->lastInsertId();
         }
-
         $role = $userId === (int) $user['id'] ? 'admin' : 'member';
         $insertMember->execute([$projectId, $userId, $role]);
     }
 
     $pdo->commit();
-    json_response(['project_id' => $projectId], 201);
+    json_response(['success' => true]);
 } catch (Throwable $e) {
     $pdo->rollBack();
-    json_response(['message' => 'Erreur création projet', 'details' => $e->getMessage()], 500);
+    json_response(['message' => 'Erreur mise à jour projet', 'details' => $e->getMessage()], 500);
 }

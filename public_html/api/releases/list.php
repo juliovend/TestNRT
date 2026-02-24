@@ -6,6 +6,6 @@ if ($projectId <= 0) {
 }
 require_project_membership($projectId, (int) $user['id']);
 
-$stmt = db()->prepare('SELECT * FROM releases WHERE project_id = ? ORDER BY created_at DESC');
+$stmt = db()->prepare('SELECT * FROM releases WHERE project_id = ? ORDER BY version ASC');
 $stmt->execute([$projectId]);
 json_response(['releases' => $stmt->fetchAll()]);

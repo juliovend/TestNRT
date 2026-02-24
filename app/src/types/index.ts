@@ -4,11 +4,20 @@ export interface User {
   name: string | null;
 }
 
-export interface Project {
+export interface RunSummary {
+  total: number;
+  pass: number;
+  fail: number;
+  blocked: number;
+  skipped: number;
+  not_run: number;
+}
+
+export interface RunItem {
   id: number;
-  name: string;
-  description: string | null;
+  run_number: number;
   created_at: string;
+  summary: RunSummary;
 }
 
 export interface Release {
@@ -17,6 +26,16 @@ export interface Release {
   version: string;
   notes: string | null;
   created_at: string;
+  runs?: RunItem[];
+}
+
+export interface Project {
+  id: number;
+  name: string;
+  description: string | null;
+  created_at: string;
+  assigned_emails: string[];
+  releases?: Release[];
 }
 
 export interface TestCase {
@@ -32,15 +51,9 @@ export interface TestRun {
   id: number;
   project_id: number;
   release_id: number;
+  run_number: number;
   created_by: number;
   status: string;
   created_at: string;
-  summary: {
-    total: number;
-    pass: number;
-    fail: number;
-    blocked: number;
-    skipped: number;
-    not_run: number;
-  };
+  summary: RunSummary;
 }
