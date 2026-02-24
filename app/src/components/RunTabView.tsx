@@ -24,6 +24,7 @@ export default function RunTabView({ runId }: Props) {
   const [axes, setAxes] = useState<TestBookAxis[]>([]);
   const [cases, setCases] = useState<RunCase[]>([]);
   const [selection, setSelection] = useState<string>('overview');
+  const [statusFilter, setStatusFilter] = useState<'ALL' | RunCase['status']>('ALL');
 
   const load = async () => {
     const data = await apiFetch<{ axes: TestBookAxis[]; results: RunCase[] }>(API_ROUTES.runs.get(runId));
@@ -36,10 +37,16 @@ export default function RunTabView({ runId }: Props) {
   }, [runId]);
 
   const filteredCases = useMemo(() => {
-    if (selection === 'overview') return cases;
-    const clauses = selection.split('|').map((chunk) => chunk.split('='));
-    return cases.filter((row) => clauses.every(([level, value]) => row.analytical_values[level] === value));
-  }, [cases, selection]);
+    const analyticalFiltered = selection === 'overview'
+      ? cases
+      : cases.filter((row) => {
+          const clauses = selection.split('|').map((chunk) => chunk.split('='));
+          return clauses.every(([level, value]) => row.analytical_values[level] === value);
+        });
+
+    if (statusFilter === 'ALL') return analyticalFiltered;
+    return analyticalFiltered.filter((row) => row.status === statusFilter);
+  }, [cases, selection, statusFilter]);
 
   const buildNodes = (levelIndex: number, parentFilters: string[], source: RunCase[]): { key: string; label: string; depth: number }[] => {
     if (levelIndex >= axes.length) return [];
@@ -101,15 +108,31 @@ export default function RunTabView({ runId }: Props) {
             <Chip color="warning" label={`Blocked ${cases.filter((c) => c.status === 'BLOCKED').length}`} />
             <Chip label={`To Do ${cases.filter((c) => c.status === 'NOT_RUN').length}`} />
           </Stack>
-          <Button
-            startIcon={<Add />}
-            onClick={async () => {
-              await apiFetch(API_ROUTES.runs.casesCreate, { method: 'POST', bodyJson: { run_id: runId, insert_index: cases.length + 1 } });
-              await load();
-            }}
-          >
-            Ajouter cas
-          </Button>
+          <Stack direction="row" spacing={1} alignItems="center">
+            <TextField
+              size="small"
+              select
+              label="Statut"
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value as 'ALL' | RunCase['status'])}
+              sx={{ minWidth: 160 }}
+            >
+              <MenuItem value="ALL">Tous</MenuItem>
+              <MenuItem value="PASS">PASS</MenuItem>
+              <MenuItem value="FAIL">FAIL</MenuItem>
+              <MenuItem value="BLOCKED">BLOCKED</MenuItem>
+              <MenuItem value="NOT_RUN">NOT_RUN</MenuItem>
+            </TextField>
+            <Button
+              startIcon={<Add />}
+              onClick={async () => {
+                await apiFetch(API_ROUTES.runs.casesCreate, { method: 'POST', bodyJson: { run_id: runId, insert_index: cases.length + 1 } });
+                await load();
+              }}
+            >
+              Ajouter cas
+            </Button>
+          </Stack>
         </Stack>
 
         <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: 620 }}>
@@ -120,6 +143,7 @@ export default function RunTabView({ runId }: Props) {
                 {axes.map((axis) => <TableCell key={axis.level_number}>{axis.label}</TableCell>)}
                 <TableCell sx={{ minWidth: 260 }}>Steps</TableCell>
                 <TableCell sx={{ minWidth: 260 }}>Expected</TableCell>
+                <TableCell>Status</TableCell>
                 <TableCell sx={{ minWidth: 260 }}>Comments</TableCell>
                 <TableCell>Tester</TableCell>
                 <TableCell>Test Date</TableCell>
@@ -173,6 +197,14 @@ export default function RunTabView({ runId }: Props) {
                         row.expected_result = e.target.value;
                         setCases([...cases]);
                       }}
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Chip
+                      size="small"
+                      label={row.status}
+                      color={row.status === 'PASS' ? 'success' : row.status === 'FAIL' ? 'error' : row.status === 'BLOCKED' ? 'warning' : 'default'}
+                      variant={row.status === 'NOT_RUN' ? 'outlined' : 'filled'}
                     />
                   </TableCell>
                   <TableCell sx={{ minWidth: 260, verticalAlign: 'top' }}>
