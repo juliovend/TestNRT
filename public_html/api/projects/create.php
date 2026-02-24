@@ -32,8 +32,8 @@ try {
     $projectId = (int) $pdo->lastInsertId();
 
     $findUser = $pdo->prepare('SELECT id FROM users WHERE email = ?');
-    $createUser = $pdo->prepare('INSERT INTO users(email, password_hash, name) VALUES (?, NULL, NULL)');
     $insertMember = $pdo->prepare('INSERT INTO project_members(project_id, user_id, role) VALUES (?, ?, ?)');
+    $missingEmails = [];
 
     foreach ($emails as $email) {
         $findUser->execute([$email]);
@@ -41,17 +41,24 @@ try {
         if ($existing) {
             $userId = (int) $existing['id'];
         } else {
-            $createUser->execute([$email]);
-            $userId = (int) $pdo->lastInsertId();
+            $missingEmails[] = $email;
+            continue;
         }
 
         $role = $userId === (int) $user['id'] ? 'admin' : 'member';
         $insertMember->execute([$projectId, $userId, $role]);
     }
 
+    if ($missingEmails !== []) {
+        throw new RuntimeException('Utilisateurs introuvables: ' . implode(', ', $missingEmails));
+    }
+
     $pdo->commit();
     json_response(['project_id' => $projectId], 201);
 } catch (Throwable $e) {
     $pdo->rollBack();
+    if ($e instanceof RuntimeException) {
+        json_response(['message' => $e->getMessage()], 422);
+    }
     json_response(['message' => 'Erreur création projet', 'details' => $e->getMessage()], 500);
 }
