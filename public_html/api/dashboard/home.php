@@ -10,11 +10,11 @@ $memberStmt = $pdo->prepare('SELECT u.email FROM project_members pm INNER JOIN u
 $releaseStmt = $pdo->prepare('SELECT id, version, notes, created_at FROM releases WHERE project_id = ? ORDER BY version ASC');
 $runStmt = $pdo->prepare('SELECT tr.id, tr.run_number, tr.created_at,
   COUNT(trc.id) AS total,
-  SUM(CASE WHEN trr.status = "PASS" THEN 1 ELSE 0 END) AS pass,
-  SUM(CASE WHEN trr.status = "FAIL" THEN 1 ELSE 0 END) AS fail,
-  SUM(CASE WHEN trr.status = "BLOCKED" THEN 1 ELSE 0 END) AS blocked,
-  SUM(CASE WHEN trr.status = "SKIPPED" THEN 1 ELSE 0 END) AS skipped,
-  SUM(CASE WHEN trr.status = "NOT_RUN" THEN 1 ELSE 0 END) AS not_run
+  SUM(CASE WHEN trr.status = \'PASS\' THEN 1 ELSE 0 END) AS pass,
+  SUM(CASE WHEN trr.status = \'FAIL\' THEN 1 ELSE 0 END) AS fail,
+  SUM(CASE WHEN trr.status = \'BLOCKED\' THEN 1 ELSE 0 END) AS blocked,
+  SUM(CASE WHEN trr.status = \'SKIPPED\' THEN 1 ELSE 0 END) AS skipped,
+  SUM(CASE WHEN trr.status = \'NOT_RUN\' THEN 1 ELSE 0 END) AS not_run
   FROM test_runs tr
   LEFT JOIN test_run_cases trc ON trc.test_run_id = tr.id
   LEFT JOIN test_run_results trr ON trr.test_run_case_id = trc.id
