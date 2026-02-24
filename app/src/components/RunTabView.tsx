@@ -1,5 +1,5 @@
 import { Add, Delete } from '@mui/icons-material';
-import { Box, Button, Chip, List, ListItemButton, ListItemText, MenuItem, Paper, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField } from '@mui/material';
+import { Box, Button, Chip, LinearProgress, List, ListItemButton, ListItemText, MenuItem, Paper, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography } from '@mui/material';
 import { useEffect, useMemo, useState } from 'react';
 import { API_ROUTES, apiFetch } from '../api/client';
 import type { TestBookAxis } from '../types';
@@ -19,6 +19,17 @@ type RunCase = {
 };
 
 interface Props { runId: number }
+
+type AxisValueStats = {
+  axisLabel: string;
+  valueLabel: string;
+  total: number;
+  executed: number;
+  remaining: number;
+  passed: number;
+  completion: number;
+  quality: number;
+};
 
 export default function RunTabView({ runId }: Props) {
   const [axes, setAxes] = useState<TestBookAxis[]>([]);
@@ -60,6 +71,32 @@ export default function RunTabView({ runId }: Props) {
   };
 
   const menuNodes = useMemo(() => buildNodes(0, [], cases), [cases, axes]);
+
+  const overviewStats = useMemo<AxisValueStats[]>(() => {
+    return axes.flatMap((axis) => {
+      const levelKey = String(axis.level_number);
+      return axis.values.map((axisValue) => {
+        const scopedCases = cases.filter((runCase) => runCase.analytical_values[levelKey] === axisValue.value_label);
+        const total = scopedCases.length;
+        const executed = scopedCases.filter((runCase) => runCase.status === 'PASS' || runCase.status === 'FAIL').length;
+        const remaining = total - executed;
+        const passed = scopedCases.filter((runCase) => runCase.status === 'PASS').length;
+        const completion = total > 0 ? (executed / total) * 100 : 0;
+        const quality = executed > 0 ? (passed / executed) * 100 : 0;
+
+        return {
+          axisLabel: axis.label,
+          valueLabel: axisValue.value_label,
+          total,
+          executed,
+          remaining,
+          passed,
+          completion,
+          quality,
+        };
+      });
+    });
+  }, [axes, cases]);
 
   const setStatus = async (testRunCaseId: number, status: RunCase['status'], comment = '') => {
     await apiFetch(API_ROUTES.runs.setResult, { method: 'POST', bodyJson: { test_run_case_id: testRunCaseId, status, comment } });
@@ -135,8 +172,37 @@ export default function RunTabView({ runId }: Props) {
           </Stack>
         </Stack>
 
-        <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: 620 }}>
-          <Table size="small" stickyHeader>
+        {selection === 'overview' ? (
+          <Stack spacing={1.5}>
+            {overviewStats.map((stat) => (
+              <Paper key={`${stat.axisLabel}-${stat.valueLabel}`} variant="outlined" sx={{ p: 1.5 }}>
+                <Typography variant="subtitle2">{stat.axisLabel} — {stat.valueLabel}</Typography>
+                <Stack direction="row" spacing={1} sx={{ my: 1, flexWrap: 'wrap' }}>
+                  <Chip size="small" label={`Total ${stat.total}`} />
+                  <Chip size="small" color="info" label={`Exécutés ${stat.executed}`} />
+                  <Chip size="small" label={`Restants ${stat.remaining}`} />
+                  <Chip size="small" color="success" label={`Pass ${stat.passed}`} />
+                </Stack>
+                <Typography variant="caption" color="text.secondary">Completion {stat.completion.toFixed(1)}%</Typography>
+                <LinearProgress
+                  variant="determinate"
+                  value={stat.completion}
+                  color={stat.completion >= 100 ? 'success' : stat.completion >= 50 ? 'warning' : 'error'}
+                  sx={{ height: 9, borderRadius: 999, mb: 1.25 }}
+                />
+                <Typography variant="caption" color="text.secondary">Quality {stat.quality.toFixed(1)}%</Typography>
+                <LinearProgress
+                  variant="determinate"
+                  value={stat.quality}
+                  color={stat.quality >= 80 ? 'success' : stat.quality >= 60 ? 'warning' : 'error'}
+                  sx={{ height: 9, borderRadius: 999 }}
+                />
+              </Paper>
+            ))}
+          </Stack>
+        ) : (
+          <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: 620 }}>
+            <Table size="small" stickyHeader>
             <TableHead>
               <TableRow>
                 <TableCell>#</TableCell>
@@ -150,9 +216,9 @@ export default function RunTabView({ runId }: Props) {
                 <TableCell>Actions</TableCell>
               </TableRow>
             </TableHead>
-            <TableBody>
-              {filteredCases.map((row) => (
-                <TableRow key={row.test_run_case_id}>
+              <TableBody>
+                {filteredCases.map((row) => (
+                  <TableRow key={row.test_run_case_id}>
                   <TableCell>{row.case_number}</TableCell>
                   {axes.map((axis) => (
                     <TableCell key={`${row.test_run_case_id}-${axis.level_number}`}>
@@ -240,11 +306,12 @@ export default function RunTabView({ runId }: Props) {
                       }} />
                     </Stack>
                   </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        )}
       </Paper>
     </Box>
   );
