@@ -31,7 +31,7 @@ try {
     $pdo->prepare('DELETE FROM project_members WHERE project_id = ?')->execute([$projectId]);
 
     $findUser = $pdo->prepare('SELECT id FROM users WHERE email = ?');
-    $createUser = $pdo->prepare('INSERT INTO users(email, password_hash, name) VALUES (?, NULL, NULL)');
+    $createUser = $pdo->prepare('INSERT INTO users(email, password_hash, name, auth_provider) VALUES (?, ?, NULL, "local")');
     $insertMember = $pdo->prepare('INSERT INTO project_members(project_id, user_id, role) VALUES (?, ?, ?)');
 
     foreach ($emails as $email) {
@@ -40,7 +40,7 @@ try {
         if ($existing) {
             $userId = (int) $existing['id'];
         } else {
-            $createUser->execute([$email]);
+            $createUser->execute([$email, password_hash(bin2hex(random_bytes(16)), PASSWORD_DEFAULT)]);
             $userId = (int) $pdo->lastInsertId();
         }
         $role = $userId === (int) $user['id'] ? 'admin' : 'member';
