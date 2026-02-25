@@ -5,13 +5,13 @@ $password = $body['password'] ?? '';
 $name = trim($body['name'] ?? '');
 
 if (!filter_var($email, FILTER_VALIDATE_EMAIL) || strlen($password) < 6) {
-    json_response(['message' => 'Email ou mot de passe invalide (min 6 caractères)'], 422);
+    json_response(['message' => 'Invalid email or password (min 6 characters)'], 422);
 }
 
 $stmt = db()->prepare('SELECT id FROM users WHERE email = ?');
 $stmt->execute([$email]);
 if ($stmt->fetch()) {
-    json_response(['message' => 'Email déjà utilisé'], 409);
+    json_response(['message' => 'Email already in use'], 409);
 }
 
 $hash = password_hash($password, PASSWORD_DEFAULT);

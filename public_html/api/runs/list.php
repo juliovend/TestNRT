@@ -3,7 +3,7 @@ $user = require_login();
 $releaseId = (int) ($_GET['release_id'] ?? 0);
 
 if ($releaseId <= 0) {
-    json_response(['message' => 'release_id obligatoire'], 422);
+    json_response(['message' => 'release_id is required'], 422);
 }
 
 $pdo = db();
@@ -12,7 +12,7 @@ $stmtRelease->execute([$releaseId]);
 $release = $stmtRelease->fetch();
 
 if (!$release) {
-    json_response(['message' => 'Release introuvable'], 404);
+    json_response(['message' => 'Release not found'], 404);
 }
 
 $projectId = (int) $release['project_id'];

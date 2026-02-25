@@ -7,7 +7,7 @@ $description = trim($body['description'] ?? '');
 $assignedEmails = $body['assigned_emails'] ?? [];
 
 if ($projectId <= 0 || $name === '' || !is_array($assignedEmails)) {
-    json_response(['message' => 'project_id, name et assigned_emails valides sont obligatoires'], 422);
+    json_response(['message' => 'project_id, name, and valid assigned_emails are required'], 422);
 }
 require_project_membership($projectId, (int) $user['id']);
 
@@ -59,5 +59,5 @@ try {
     json_response(['success' => true]);
 } catch (Throwable $e) {
     $pdo->rollBack();
-    json_response(['message' => 'Erreur mise à jour projet', 'details' => $e->getMessage()], 500);
+    json_response(['message' => 'Error updating project', 'details' => $e->getMessage()], 500);
 }

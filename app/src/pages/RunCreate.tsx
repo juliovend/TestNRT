@@ -17,11 +17,11 @@ export default function RunCreate() {
 
   return (
     <Stack spacing={2}>
-      <Typography variant="h5">Créer un run</Typography>
+      <Typography variant="h5">Create a run</Typography>
       <TextField label="Project ID" value={projectId} onChange={(e) => setProjectId(e.target.value)} />
       <TextField label="Release ID" value={releaseId} onChange={(e) => setReleaseId(e.target.value)} />
-      <Button variant="contained" onClick={create}>Créer</Button>
-      {runId ? <Typography>Run créé: #{runId}</Typography> : null}
+      <Button variant="contained" onClick={create}>Create</Button>
+      {runId ? <Typography>Run created: #{runId}</Typography> : null}
     </Stack>
   );
 }

@@ -11,7 +11,7 @@ $stmt = db()->prepare('SELECT tr.project_id FROM test_run_cases trc INNER JOIN t
 $stmt->execute([$id]);
 $row = $stmt->fetch();
 if (!$row) {
-    json_response(['message' => 'Test case run introuvable'], 404);
+    json_response(['message' => 'Run test case not found'], 404);
 }
 require_project_membership((int) $row['project_id'], (int) $user['id']);
 

@@ -45,7 +45,7 @@ $routes = [
 if ($route !== null) {
     $route = trim((string) $route);
     if ($route === '') {
-        json_response(['message' => 'Paramètre "route" vide'], 400);
+        json_response(['message' => 'Empty "route" parameter'], 400);
     }
 
     $path = '/' . trim(str_replace('.', '/', $route), '/');
@@ -71,14 +71,14 @@ if ($route !== null) {
 }
 
 if ($route === '' || !isset($routes[$route])) {
-    json_response(['message' => 'Endpoint non trouvé', 'method' => $method, 'route' => $route, 'path' => $path], 404);
+    json_response(['message' => 'Endpoint not found', 'method' => $method, 'route' => $route, 'path' => $path], 404);
 }
 
 $endpoint = $routes[$route];
 if ($method !== $endpoint['method']) {
     header('Allow: ' . $endpoint['method']);
     json_response([
-        'message' => 'Méthode HTTP non autorisée',
+        'message' => 'HTTP method not allowed',
         'route' => $route,
         'expected_method' => $endpoint['method'],
         'received_method' => $method,

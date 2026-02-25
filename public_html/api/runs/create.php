@@ -6,7 +6,7 @@ $releaseId = (int) ($body['release_id'] ?? 0);
 $runNumber = (int) ($body['run_number'] ?? 0);
 
 if ($projectId <= 0 || $releaseId <= 0 || $runNumber <= 0) {
-    json_response(['message' => 'project_id, release_id et run_number obligatoires'], 422);
+    json_response(['message' => 'project_id, release_id and run_number are required'], 422);
 }
 require_project_membership($projectId, (int) $user['id']);
 
@@ -43,5 +43,5 @@ try {
     json_response(['run_id' => $runId, 'test_case_count' => count($cases)], 201);
 } catch (Throwable $e) {
     $pdo->rollBack();
-    json_response(['message' => 'Erreur création run', 'details' => $e->getMessage()], 500);
+    json_response(['message' => 'Error creating run', 'details' => $e->getMessage()], 500);
 }

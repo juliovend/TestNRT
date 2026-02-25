@@ -8,7 +8,7 @@ $stmt = $pdo->prepare('SELECT project_id, case_number FROM test_cases WHERE id =
 $stmt->execute([$id]);
 $row = $stmt->fetch();
 if (!$row) {
-    json_response(['message' => 'Test case introuvable'], 404);
+    json_response(['message' => 'Test case not found'], 404);
 }
 $projectId = (int) $row['project_id'];
 $caseNumber = (int) $row['case_number'];
@@ -26,5 +26,5 @@ try {
     json_response(['success' => true]);
 } catch (Throwable $e) {
     $pdo->rollBack();
-    json_response(['message' => 'Erreur suppression', 'details' => $e->getMessage()], 500);
+    json_response(['message' => 'Deletion error', 'details' => $e->getMessage()], 500);
 }

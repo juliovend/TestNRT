@@ -13,11 +13,11 @@ $stmt = db()->prepare('SELECT id, project_id, attachments_json FROM test_cases W
 $stmt->execute([$caseId]);
 $testCase = $stmt->fetch();
 if (!$testCase || (int) $testCase['project_id'] !== $projectId) {
-    json_response(['message' => 'Test case introuvable pour ce projet'], 404);
+    json_response(['message' => 'Test case not found for this project'], 404);
 }
 
 if (!isset($_FILES['files'])) {
-    json_response(['message' => 'Aucun fichier reçu'], 422);
+    json_response(['message' => 'No file received'], 422);
 }
 
 $files = $_FILES['files'];
@@ -32,7 +32,7 @@ if (!is_array($attachments)) {
 
 $storageDir = dirname(__DIR__, 2) . '/uploads/testbook/' . $projectId . '/' . $caseId;
 if (!is_dir($storageDir) && !mkdir($storageDir, 0775, true) && !is_dir($storageDir)) {
-    json_response(['message' => 'Impossible de créer le répertoire de stockage'], 500);
+    json_response(['message' => 'Unable to create storage directory'], 500);
 }
 
 for ($i = 0; $i < count($names); $i++) {

@@ -27,6 +27,6 @@ function require_project_membership(int $projectId, int $userId): void
     $stmt = db()->prepare('SELECT role FROM project_members WHERE project_id = ? AND user_id = ?');
     $stmt->execute([$projectId, $userId]);
     if (!$stmt->fetch()) {
-        json_response(['message' => 'Accès refusé à ce projet'], 403);
+        json_response(['message' => 'Access denied for this project'], 403);
     }
 }

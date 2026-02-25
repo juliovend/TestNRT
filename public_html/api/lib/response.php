@@ -16,7 +16,7 @@ function read_json_body(): array
 
     $decoded = json_decode($raw, true);
     if (!is_array($decoded)) {
-        json_response(['message' => 'JSON invalide'], 400);
+        json_response(['message' => 'Invalid JSON'], 400);
     }
 
     return $decoded;

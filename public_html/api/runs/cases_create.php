@@ -5,7 +5,7 @@ $runId = (int) ($body['run_id'] ?? 0);
 $insertIndex = (int) ($body['insert_index'] ?? 0);
 
 if ($runId <= 0) {
-    json_response(['message' => 'run_id obligatoire'], 422);
+    json_response(['message' => 'run_id is required'], 422);
 }
 
 $pdo = db();
@@ -13,7 +13,7 @@ $runStmt = $pdo->prepare('SELECT project_id FROM test_runs WHERE id = ?');
 $runStmt->execute([$runId]);
 $run = $runStmt->fetch();
 if (!$run) {
-    json_response(['message' => 'Run introuvable'], 404);
+    json_response(['message' => 'Run not found'], 404);
 }
 require_project_membership((int) $run['project_id'], (int) $user['id']);
 
@@ -40,5 +40,5 @@ try {
     json_response(['test_run_case_id' => $runCaseId], 201);
 } catch (Throwable $e) {
     $pdo->rollBack();
-    json_response(['message' => 'Erreur création test case run', 'details' => $e->getMessage()], 500);
+    json_response(['message' => 'Error creating run test case', 'details' => $e->getMessage()], 500);
 }

@@ -8,7 +8,7 @@ $stmt = $pdo->prepare('SELECT tr.project_id, trc.test_run_id, trc.case_number FR
 $stmt->execute([$id]);
 $row = $stmt->fetch();
 if (!$row) {
-    json_response(['message' => 'Test case run introuvable'], 404);
+    json_response(['message' => 'Run test case not found'], 404);
 }
 require_project_membership((int) $row['project_id'], (int) $user['id']);
 
@@ -24,5 +24,5 @@ try {
     json_response(['success' => true]);
 } catch (Throwable $e) {
     $pdo->rollBack();
-    json_response(['message' => 'Erreur suppression test case run', 'details' => $e->getMessage()], 500);
+    json_response(['message' => 'Error deleting run test case', 'details' => $e->getMessage()], 500);
 }

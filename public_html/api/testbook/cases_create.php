@@ -9,7 +9,7 @@ $analyticalValues = $body['analytical_values'] ?? new stdClass();
 $attachments = $body['attachments'] ?? [];
 
 if ($projectId <= 0) {
-    json_response(['message' => 'project_id obligatoire'], 422);
+    json_response(['message' => 'project_id is required'], 422);
 }
 require_project_membership($projectId, (int) $user['id']);
 
@@ -43,5 +43,5 @@ try {
     json_response(['test_case_id' => (int) $pdo->lastInsertId()], 201);
 } catch (Throwable $e) {
     $pdo->rollBack();
-    json_response(['message' => 'Erreur création test case', 'details' => $e->getMessage()], 500);
+    json_response(['message' => 'Error creating test case', 'details' => $e->getMessage()], 500);
 }

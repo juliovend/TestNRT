@@ -25,21 +25,21 @@ export default function Login({ onLogin, onRegister }: Props) {
     <Box sx={{ minHeight: '100vh', display: 'grid', placeItems: 'center', p: 2 }}>
       <Paper sx={{ p: 4, width: '100%', maxWidth: 420 }}>
         <Stack spacing={2}>
-          <Typography variant="h5">Connexion Test Assistant 🌙</Typography>
+          <Typography variant="h5">Test Assistant Login 🌙</Typography>
           {error ? <Alert severity="error">{error}</Alert> : null}
-          <TextField label="Nom" value={name} onChange={(e) => setName(e.target.value)} />
+          <TextField label="Name" value={name} onChange={(e) => setName(e.target.value)} />
           <TextField label="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
           <TextField
-            label="Mot de passe"
+            label="Password"
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           />
           <Button variant="contained" onClick={() => wrap(() => onLogin(email, password))}>
-            Login email+mdp
+            Login with email + password
           </Button>
           <Button variant="outlined" onClick={() => wrap(() => onRegister(email, password, name))}>
-            Register email+mdp
+            Register with email + password
           </Button>
         </Stack>
       </Paper>

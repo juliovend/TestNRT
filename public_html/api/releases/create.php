@@ -5,7 +5,7 @@ $projectId = (int) ($body['project_id'] ?? 0);
 $version = trim($body['version'] ?? '');
 $notes = trim($body['notes'] ?? '');
 if ($projectId <= 0 || $version === '') {
-    json_response(['message' => 'project_id et version obligatoires'], 422);
+    json_response(['message' => 'project_id and version are required'], 422);
 }
 require_project_membership($projectId, (int) $user['id']);
 

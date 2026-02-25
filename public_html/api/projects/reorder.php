@@ -4,7 +4,7 @@ $body = read_json_body();
 $projectOrders = $body['project_orders'] ?? [];
 
 if (!is_array($projectOrders) || !$projectOrders) {
-    json_response(['message' => 'project_orders doit être une liste non vide'], 422);
+    json_response(['message' => 'project_orders must be a non-empty list'], 422);
 }
 
 $pdo = db();
@@ -16,19 +16,19 @@ $pdo->beginTransaction();
 try {
     foreach ($projectOrders as $index => $item) {
         if (!is_array($item)) {
-            json_response(['message' => 'Chaque entrée project_orders doit être un objet'], 422);
+            json_response(['message' => 'Each project_orders entry must be an object'], 422);
         }
 
         $projectId = (int) ($item['project_id'] ?? 0);
         $order = (int) ($item['project_order'] ?? ($index + 1));
 
         if ($projectId <= 0 || $order <= 0) {
-            json_response(['message' => 'project_id et project_order doivent être des entiers positifs'], 422);
+            json_response(['message' => 'project_id and project_order must be positive integers'], 422);
         }
 
         $checkMembership->execute([$projectId, $user['id']]);
         if (!$checkMembership->fetch()) {
-            json_response(['message' => 'Accès refusé pour au moins un projet'], 403);
+            json_response(['message' => 'Access denied for at least one project'], 403);
         }
 
         $updateOrder->execute([$order, $projectId, $user['id']]);
@@ -38,5 +38,5 @@ try {
     json_response(['success' => true]);
 } catch (Throwable $e) {
     $pdo->rollBack();
-    json_response(['message' => 'Erreur lors de la sauvegarde de l\'ordre des projets', 'details' => $e->getMessage()], 500);
+    json_response(['message' => 'Error while saving project order', 'details' => $e->getMessage()], 500);
 }
