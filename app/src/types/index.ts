@@ -18,6 +18,7 @@ export interface RunItem {
   run_number: number;
   created_at: string;
   summary: RunSummary;
+  scope_validated: number;
 }
 
 export interface Release {

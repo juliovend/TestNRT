@@ -3,6 +3,7 @@ import { Box, Button, Chip, List, ListItemButton, ListItemText, MenuItem, Paper,
 import { useEffect, useMemo, useState } from 'react';
 import { API_ROUTES, apiFetch } from '../api/client';
 import type { TestBookAxis } from '../types';
+import { computeScopeValidated, getRunScopeHighlightThreshold, getScopeHighlightSx, setRunScopeHighlightThreshold } from '../utils/runScope';
 
 type RunCase = {
   test_run_case_id: number;
@@ -44,7 +45,7 @@ export default function RunTabView({ runId }: Props) {
   const [selection, setSelection] = useState<string>('overview');
   const [statusFilter, setStatusFilter] = useState<'ALL' | RunCase['status']>('ALL');
   const [overviewAxisSelections, setOverviewAxisSelections] = useState<string[]>([]);
-  const [scopeHighlightThreshold, setScopeHighlightThreshold] = useState<number>(80);
+  const [scopeHighlightThreshold, setScopeHighlightThreshold] = useState<number>(getRunScopeHighlightThreshold(runId));
   const [runMeta, setRunMeta] = useState<RunMeta | null>(null);
   const [isExportingPdf, setIsExportingPdf] = useState(false);
 
@@ -94,6 +95,10 @@ export default function RunTabView({ runId }: Props) {
     [overviewAxisSelections],
   );
 
+  useEffect(() => {
+    setScopeHighlightThreshold(getRunScopeHighlightThreshold(runId));
+  }, [runId]);
+
   const summarizeCases = (source: RunCase[]) => {
     const total = source.length;
     const ok = source.filter((runCase) => runCase.status === 'PASS').length;
@@ -107,7 +112,7 @@ export default function RunTabView({ runId }: Props) {
       ok,
       ko,
       nt,
-      scopeValidated: total > 0 ? (ok / total) * 100 : 0,
+      scopeValidated: computeScopeValidated(total, ok),
     };
   };
 
@@ -150,17 +155,6 @@ export default function RunTabView({ runId }: Props) {
   }, [axes, cases, selectedOverviewAxes]);
 
   const grandTotalStats = useMemo(() => summarizeCases(cases), [cases]);
-
-  const getScopeCellSx = (scopeValidated: number) => ({
-    fontWeight: 700,
-    ...(scopeValidated > scopeHighlightThreshold
-      ? {
-          bgcolor: 'success.light',
-          color: 'success.dark',
-          borderRadius: 1,
-        }
-      : {}),
-  });
 
   const sanitizePdfText = (value: string) => value
     .replace(/\\/g, '\\\\')
@@ -341,7 +335,7 @@ export default function RunTabView({ runId }: Props) {
               type="number"
               label="Seuil Scope (%)"
               value={scopeHighlightThreshold}
-              onChange={(e) => setScopeHighlightThreshold(Math.max(0, Math.min(100, Number(e.target.value) || 0)))}
+              onChange={(e) => setScopeHighlightThreshold(setRunScopeHighlightThreshold(runId, Number(e.target.value) || 0))}
               inputProps={{ min: 0, max: 100, step: 1 }}
               sx={{ width: 150 }}
             />
@@ -444,7 +438,7 @@ export default function RunTabView({ runId }: Props) {
                         <TableCell align="right">{stat.ok}</TableCell>
                         <TableCell align="right">{stat.ko}</TableCell>
                         <TableCell align="right">{stat.nt}</TableCell>
-                        <TableCell align="right" sx={getScopeCellSx(stat.scopeValidated)}>{`${stat.scopeValidated.toFixed(0)}%`}</TableCell>
+                        <TableCell align="right" sx={getScopeHighlightSx(stat.scopeValidated, scopeHighlightThreshold)}>{`${stat.scopeValidated.toFixed(0)}%`}</TableCell>
                       </TableRow>
                     ))}
                     <TableRow>
@@ -454,7 +448,7 @@ export default function RunTabView({ runId }: Props) {
                       <TableCell align="right" sx={{ fontWeight: 700 }}>{grandTotalStats.ok}</TableCell>
                       <TableCell align="right" sx={{ fontWeight: 700 }}>{grandTotalStats.ko}</TableCell>
                       <TableCell align="right" sx={{ fontWeight: 700 }}>{grandTotalStats.nt}</TableCell>
-                      <TableCell align="right" sx={getScopeCellSx(grandTotalStats.scopeValidated)}>{`${grandTotalStats.scopeValidated.toFixed(0)}%`}</TableCell>
+                      <TableCell align="right" sx={getScopeHighlightSx(grandTotalStats.scopeValidated, scopeHighlightThreshold)}>{`${grandTotalStats.scopeValidated.toFixed(0)}%`}</TableCell>
                     </TableRow>
                   </TableBody>
                 </Table>
