@@ -1,6 +1,6 @@
 import { Add, Delete, PictureAsPdf } from '@mui/icons-material';
 import { Box, Button, Chip, List, ListItemButton, ListItemText, MenuItem, Paper, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography } from '@mui/material';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { API_ROUTES, apiFetch } from '../api/client';
 import type { TestBookAxis } from '../types';
 
@@ -32,6 +32,12 @@ type AxisValueStats = {
   scopeValidated: number;
 };
 
+type RunMeta = {
+  project_name: string;
+  release_version: string;
+  run_number: number;
+};
+
 export default function RunTabView({ runId }: Props) {
   const [axes, setAxes] = useState<TestBookAxis[]>([]);
   const [cases, setCases] = useState<RunCase[]>([]);
@@ -39,9 +45,12 @@ export default function RunTabView({ runId }: Props) {
   const [statusFilter, setStatusFilter] = useState<'ALL' | RunCase['status']>('ALL');
   const [overviewAxisSelections, setOverviewAxisSelections] = useState<string[]>([]);
   const [scopeHighlightThreshold, setScopeHighlightThreshold] = useState<number>(80);
+  const [runMeta, setRunMeta] = useState<RunMeta | null>(null);
+  const overviewTableRef = useRef<HTMLDivElement | null>(null);
 
   const load = async () => {
-    const data = await apiFetch<{ axes: TestBookAxis[]; results: RunCase[] }>(API_ROUTES.runs.get(runId));
+    const data = await apiFetch<{ run: RunMeta; axes: TestBookAxis[]; results: RunCase[] }>(API_ROUTES.runs.get(runId));
+    setRunMeta(data.run);
     setAxes(data.axes);
     setCases(data.results);
   };
@@ -398,7 +407,7 @@ export default function RunTabView({ runId }: Props) {
             {selectedOverviewAxes.length === 0 ? (
               <Typography variant="body2" color="text.secondary">Select an analytical axis in <strong>axis 1</strong> to display the overview table.</Typography>
             ) : (
-              <TableContainer component={Paper} variant="outlined">
+              <TableContainer ref={overviewTableRef} component={Paper} variant="outlined">
                 <Table size="small">
                   <TableHead>
                     <TableRow>
