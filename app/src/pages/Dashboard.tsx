@@ -1,4 +1,4 @@
-import { Add, Delete, GroupAdd, MenuBook, PlayArrow, Refresh, Save } from '@mui/icons-material';
+import { Add, Delete, DragIndicator, GroupAdd, MenuBook, PlayArrow, Refresh, Save } from '@mui/icons-material';
 import {
   Alert,
   Box,
@@ -75,6 +75,7 @@ export default function Dashboard() {
   const [editingProjectName, setEditingProjectName] = useState('');
   const [editingReleaseId, setEditingReleaseId] = useState<number | null>(null);
   const [editingVersionName, setEditingVersionName] = useState('');
+  const [draggingProjectId, setDraggingProjectId] = useState<number | null>(null);
 
   const [tbSectionByTab, setTbSectionByTab] = useState<Record<string, TestBookSection>>({});
   const [tbAxes, setTbAxes] = useState<TestBookAxis[]>([]);
@@ -208,6 +209,37 @@ export default function Dashboard() {
     if (activeTab === tabId) setActiveTab('home');
   };
 
+  const saveProjectOrder = async (orderedProjects: Project[]) => {
+    await apiFetch(API_ROUTES.projects.reorder, {
+      method: 'POST',
+      bodyJson: {
+        project_orders: orderedProjects.map((project, index) => ({ project_id: project.id, project_order: index + 1 })),
+      },
+    });
+  };
+
+  const moveProject = async (sourceProjectId: number, targetProjectId: number) => {
+    if (sourceProjectId === targetProjectId) return;
+
+    const sourceIndex = projects.findIndex((project) => project.id === sourceProjectId);
+    const targetIndex = projects.findIndex((project) => project.id === targetProjectId);
+
+    if (sourceIndex < 0 || targetIndex < 0) return;
+
+    const reordered = [...projects];
+    const [moved] = reordered.splice(sourceIndex, 1);
+    reordered.splice(targetIndex, 0, moved);
+
+    setProjects(reordered);
+
+    try {
+      await saveProjectOrder(reordered);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erreur lors de la sauvegarde de l'ordre des projets");
+      await load();
+    }
+  };
+
   const deleteProject = async (project: Project) => {
     if (!confirm(`Supprimer le projet "${project.name}" ? Cette action est irréversible.`)) return;
 
@@ -316,9 +348,23 @@ export default function Dashboard() {
             }}
           >
             {projects.map((project) => (
-            <Paper key={project.id} sx={{ p: 2 }}>
-              <Stack spacing={1.25}>
-                <Stack direction="row" justifyContent="space-between" alignItems="center">
+              <Paper
+                key={project.id}
+                sx={{ p: 2, opacity: draggingProjectId === project.id ? 0.6 : 1 }}
+                draggable
+                onDragStart={() => setDraggingProjectId(project.id)}
+                onDragEnd={() => setDraggingProjectId(null)}
+                onDragOver={(event) => event.preventDefault()}
+                onDrop={(event) => {
+                  event.preventDefault();
+                  if (draggingProjectId !== null) {
+                    void moveProject(draggingProjectId, project.id);
+                  }
+                  setDraggingProjectId(null);
+                }}
+              >
+                <Stack spacing={1.25}>
+                  <Stack direction="row" justifyContent="space-between" alignItems="center">
                   {editingProjectId === project.id ? (
                     <TextField
                       size="small"
@@ -334,16 +380,19 @@ export default function Dashboard() {
                       }}
                     />
                   ) : (
-                    <Typography
-                      variant="h6"
-                      sx={{ cursor: 'text' }}
-                      onClick={() => {
-                        setEditingProjectId(project.id);
-                        setEditingProjectName(project.name);
-                      }}
-                    >
-                      {project.name}
-                    </Typography>
+                    <Stack direction="row" spacing={0.5} alignItems="center">
+                      <DragIndicator fontSize="small" sx={{ color: 'text.secondary', cursor: 'grab' }} />
+                      <Typography
+                        variant="h6"
+                        sx={{ cursor: 'text' }}
+                        onClick={() => {
+                          setEditingProjectId(project.id);
+                          setEditingProjectName(project.name);
+                        }}
+                      >
+                        {project.name}
+                      </Typography>
+                    </Stack>
                   )}
                   <Stack direction="row" spacing={1}>
                     <IconButton
@@ -848,6 +897,7 @@ export default function Dashboard() {
     caseFilters,
     currentProjectId,
     currentTab,
+    draggingProjectId,
     filteredCases,
     load,
     projectName,
