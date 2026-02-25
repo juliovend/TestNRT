@@ -525,6 +525,7 @@ export default function Dashboard() {
                         <Stack key={run.id} direction="row" justifyContent="space-between" alignItems="center" sx={{ gap: 1 }}>
                           <Stack direction="row" spacing={1.2} alignItems="center">
                             <Typography variant="body2">Run #{run.run_number}</Typography>
+                            <Typography variant="body2" color="text.secondary">{`${run.summary.total} cas de tests`}</Typography>
                             <Typography variant="body2" sx={getScopeHighlightSx(run.scope_validated, runScopeThreshold)}>{`${run.scope_validated.toFixed(0)}% Scope Validated`}</Typography>
                           </Stack>
                           <Stack direction="row">
