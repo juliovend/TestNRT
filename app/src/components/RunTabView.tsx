@@ -338,31 +338,37 @@ export default function RunTabView({ runId }: Props) {
       <Paper sx={{ flex: 1, p: 2 }}>
         <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
           <Stack direction="row" spacing={1}>
-            <Chip label={`Total ${cases.length}`} />
-            <Chip color="success" label={`Pass ${cases.filter((c) => c.status === 'PASS').length}`} />
-            <Chip color="error" label={`Fail ${cases.filter((c) => c.status === 'FAIL').length}`} />
-            <Chip color="warning" label={`Blocked ${cases.filter((c) => c.status === 'BLOCKED').length}`} />
-            <Chip label={`To Do ${cases.filter((c) => c.status === 'NOT_RUN').length}`} />
+            {selection !== 'overview' && (
+              <>
+                <Chip label={`Total ${cases.length}`} />
+                <Chip color="success" label={`Pass ${cases.filter((c) => c.status === 'PASS').length}`} />
+                <Chip color="error" label={`Fail ${cases.filter((c) => c.status === 'FAIL').length}`} />
+                <Chip color="warning" label={`Blocked ${cases.filter((c) => c.status === 'BLOCKED').length}`} />
+                <Chip label={`To Do ${cases.filter((c) => c.status === 'NOT_RUN').length}`} />
+              </>
+            )}
           </Stack>
           <Stack direction="row" spacing={1} alignItems="center">
-            <TextField
-              size="small"
-              type="number"
-              label="Seuil Scope (%)"
-              value={scopeHighlightThreshold}
-              onChange={(e) => setScopeHighlightThreshold(setRunScopeHighlightThreshold(runId, Number(e.target.value) || 0))}
-              inputProps={{ min: 0, max: 100, step: 1 }}
-              sx={{ width: 150 }}
-            />
             {selection === 'overview' && (
-              <Button
-                variant="contained"
-                startIcon={<PictureAsPdf />}
-                onClick={exportOverviewToPdf}
-                disabled={isExportingPdf || selectedOverviewAxes.length === 0}
-              >
-                {isExportingPdf ? 'PDF...' : 'PDF'}
-              </Button>
+              <>
+                <TextField
+                  size="small"
+                  type="number"
+                  label="Seuil Scope (%)"
+                  value={scopeHighlightThreshold}
+                  onChange={(e) => setScopeHighlightThreshold(setRunScopeHighlightThreshold(runId, Number(e.target.value) || 0))}
+                  inputProps={{ min: 0, max: 100, step: 1 }}
+                  sx={{ width: 150 }}
+                />
+                <Button
+                  variant="contained"
+                  startIcon={<PictureAsPdf />}
+                  onClick={exportOverviewToPdf}
+                  disabled={isExportingPdf || selectedOverviewAxes.length === 0}
+                >
+                  {isExportingPdf ? 'PDF...' : 'PDF'}
+                </Button>
+              </>
             )}
             {selection !== 'overview' && (
               <>
