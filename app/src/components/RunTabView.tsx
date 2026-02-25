@@ -1,4 +1,4 @@
-import { Add, Delete, PictureAsPdf } from '@mui/icons-material';
+import { Add, AttachFile, Delete, PictureAsPdf } from '@mui/icons-material';
 import { Box, Button, Chip, List, ListItemButton, ListItemText, MenuItem, Paper, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography } from '@mui/material';
 import { useEffect, useMemo, useState } from 'react';
 import { API_ROUTES, apiFetch } from '../api/client';
@@ -7,6 +7,7 @@ import { computeScopeValidated, getRunScopeHighlightThreshold, getScopeHighlight
 
 type RunCase = {
   test_run_case_id: number;
+  test_case_id: number | null;
   case_number: number;
   steps: string;
   expected_result: string | null;
@@ -34,9 +35,23 @@ type AxisValueStats = {
 };
 
 type RunMeta = {
+  project_id: number;
   project_name: string;
   release_version: string;
   run_number: number;
+};
+
+const parseAttachment = (entry: string) => {
+  const separatorIndex = entry.indexOf('::');
+  if (separatorIndex === -1) {
+    return { label: entry, stored: '', isLegacy: true };
+  }
+
+  return {
+    label: entry.slice(0, separatorIndex),
+    stored: entry.slice(separatorIndex + 2),
+    isLegacy: false,
+  };
 };
 
 export default function RunTabView({ runId }: Props) {
@@ -464,6 +479,7 @@ export default function RunTabView({ runId }: Props) {
                 {axes.map((axis) => <TableCell key={axis.level_number}>{axis.label}</TableCell>)}
                 <TableCell sx={{ minWidth: 260 }}>Steps</TableCell>
                 <TableCell sx={{ minWidth: 260 }}>Expected</TableCell>
+                <TableCell sx={{ minWidth: 240 }}>Attachments</TableCell>
                 <TableCell>Status</TableCell>
                 <TableCell sx={{ minWidth: 260 }}>Comments</TableCell>
                 <TableCell>Tester</TableCell>
@@ -519,6 +535,35 @@ export default function RunTabView({ runId }: Props) {
                         setCases([...cases]);
                       }}
                     />
+                  </TableCell>
+                  <TableCell sx={{ minWidth: 240, verticalAlign: 'top' }}>
+                    {row.attachments.length === 0 ? (
+                      '-'
+                    ) : (
+                      <Stack spacing={0.5}>
+                        {row.attachments.map((entry, attachmentIndex) => {
+                          const attachment = parseAttachment(entry);
+                          const openUrl = attachment.isLegacy
+                            ? attachment.label
+                            : runMeta && row.test_case_id
+                              ? API_ROUTES.testbook.attachmentsOpen(runMeta.project_id, row.test_case_id, attachment.stored)
+                              : '';
+
+                          return (
+                            <Button
+                              key={`${row.test_run_case_id}-attachment-${attachmentIndex}`}
+                              size="small"
+                              startIcon={<AttachFile fontSize="small" />}
+                              disabled={!openUrl}
+                              onClick={() => window.open(openUrl, '_blank', 'noopener,noreferrer')}
+                              sx={{ justifyContent: 'flex-start' }}
+                            >
+                              {attachment.label}
+                            </Button>
+                          );
+                        })}
+                      </Stack>
+                    )}
                   </TableCell>
                   <TableCell>
                     <Chip

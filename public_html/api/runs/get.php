@@ -41,7 +41,7 @@ foreach ($axesRows as $row) {
 }
 $axes = array_values($axes);
 
-$resultsStmt = db()->prepare('SELECT trc.id AS test_run_case_id, trc.case_number, trc.steps, trc.expected_result, trc.analytical_values_json, trc.attachments_json, trr.status, trr.comment, trr.tested_at, u.name AS tester_name, u.email AS tester_email
+$resultsStmt = db()->prepare('SELECT trc.id AS test_run_case_id, trc.test_case_id, trc.case_number, trc.steps, trc.expected_result, trc.analytical_values_json, trc.attachments_json, trr.status, trr.comment, trr.tested_at, u.name AS tester_name, u.email AS tester_email
 FROM test_run_cases trc
 INNER JOIN test_run_results trr ON trr.test_run_case_id = trc.id
 LEFT JOIN users u ON u.id = trr.tester_id
