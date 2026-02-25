@@ -33,7 +33,7 @@ try {
 
     $findUser = $pdo->prepare('SELECT id FROM users WHERE email = ?');
     $createUser = $pdo->prepare('INSERT INTO users(email, password_hash, name, auth_provider) VALUES (?, ?, NULL, "local")');
-    $insertMember = $pdo->prepare('INSERT INTO project_members(project_id, user_id, role) VALUES (?, ?, ?)');
+    $insertMember = $pdo->prepare('INSERT INTO project_members(project_id, user_id, role, project_order) VALUES (?, ?, ?, ?)');
 
     foreach ($emails as $email) {
         $findUser->execute([$email]);
@@ -46,7 +46,7 @@ try {
         }
 
         $role = $userId === (int) $user['id'] ? 'admin' : 'member';
-        $insertMember->execute([$projectId, $userId, $role]);
+        $insertMember->execute([$projectId, $userId, $role, null]);
     }
 
     $pdo->commit();

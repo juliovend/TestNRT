@@ -18,6 +18,7 @@ export const API_ROUTES = {
     create: apiRoute('projects.create'),
     update: apiRoute('projects.update'),
     delete: apiRoute('projects.delete'),
+    reorder: apiRoute('projects.reorder'),
   },
   releases: {
     list: (projectId: string | number) => apiRoute('releases.list', { project_id: projectId }),

@@ -13,6 +13,7 @@ $routes = [
     'projects.create' => ['method' => 'POST', 'file' => 'projects/create.php'],
     'projects.update' => ['method' => 'POST', 'file' => 'projects/update.php'],
     'projects.delete' => ['method' => 'POST', 'file' => 'projects/delete.php'],
+    'projects.reorder' => ['method' => 'POST', 'file' => 'projects/reorder.php'],
     'releases.list' => ['method' => 'GET', 'file' => 'releases/list.php'],
     'releases.create' => ['method' => 'POST', 'file' => 'releases/create.php'],
     'releases.update' => ['method' => 'POST', 'file' => 'releases/update.php'],

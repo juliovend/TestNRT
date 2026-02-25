@@ -25,6 +25,13 @@ $pdo = db();
 $pdo->beginTransaction();
 
 try {
+    $existingOrderStmt = $pdo->prepare('SELECT u.email, pm.project_order FROM project_members pm INNER JOIN users u ON u.id = pm.user_id WHERE pm.project_id = ?');
+    $existingOrderStmt->execute([$projectId]);
+    $existingOrders = [];
+    foreach ($existingOrderStmt->fetchAll() as $row) {
+        $existingOrders[strtolower((string) $row['email'])] = $row['project_order'] !== null ? (int) $row['project_order'] : null;
+    }
+
     $updateProject = $pdo->prepare('UPDATE projects SET name = ?, description = ? WHERE id = ?');
     $updateProject->execute([$name, $description ?: null, $projectId]);
 
@@ -32,7 +39,7 @@ try {
 
     $findUser = $pdo->prepare('SELECT id FROM users WHERE email = ?');
     $createUser = $pdo->prepare('INSERT INTO users(email, password_hash, name, auth_provider) VALUES (?, ?, NULL, "local")');
-    $insertMember = $pdo->prepare('INSERT INTO project_members(project_id, user_id, role) VALUES (?, ?, ?)');
+    $insertMember = $pdo->prepare('INSERT INTO project_members(project_id, user_id, role, project_order) VALUES (?, ?, ?, ?)');
 
     foreach ($emails as $email) {
         $findUser->execute([$email]);
@@ -44,7 +51,8 @@ try {
             $userId = (int) $pdo->lastInsertId();
         }
         $role = $userId === (int) $user['id'] ? 'admin' : 'member';
-        $insertMember->execute([$projectId, $userId, $role]);
+        $projectOrder = $existingOrders[$email] ?? null;
+        $insertMember->execute([$projectId, $userId, $role, $projectOrder]);
     }
 
     $pdo->commit();

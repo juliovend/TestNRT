@@ -2,7 +2,7 @@
 $user = require_login();
 $pdo = db();
 
-$stmt = $pdo->prepare('SELECT p.* FROM projects p INNER JOIN project_members pm ON pm.project_id = p.id WHERE pm.user_id = ? ORDER BY p.name ASC');
+$stmt = $pdo->prepare('SELECT p.* FROM projects p INNER JOIN project_members pm ON pm.project_id = p.id WHERE pm.user_id = ? ORDER BY (pm.project_order IS NULL) ASC, pm.project_order ASC, p.created_at DESC, p.id DESC');
 $stmt->execute([$user['id']]);
 $projects = $stmt->fetchAll();
 
