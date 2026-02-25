@@ -1,6 +1,6 @@
 import { Add, Delete, PictureAsPdf } from '@mui/icons-material';
 import { Box, Button, Chip, List, ListItemButton, ListItemText, MenuItem, Paper, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography } from '@mui/material';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { API_ROUTES, apiFetch } from '../api/client';
 import type { TestBookAxis } from '../types';
 
@@ -47,7 +47,6 @@ export default function RunTabView({ runId }: Props) {
   const [scopeHighlightThreshold, setScopeHighlightThreshold] = useState<number>(80);
   const [runMeta, setRunMeta] = useState<RunMeta | null>(null);
   const [isExportingPdf, setIsExportingPdf] = useState(false);
-  const overviewTableRef = useRef<HTMLDivElement | null>(null);
 
   const load = async () => {
     const data = await apiFetch<{ run: RunMeta; axes: TestBookAxis[]; results: RunCase[] }>(API_ROUTES.runs.get(runId));
@@ -174,75 +173,7 @@ export default function RunTabView({ runId }: Props) {
     return new TextEncoder().encode(text);
   };
 
-  const collectDocumentStyles = () => Array.from(document.styleSheets)
-    .map((styleSheet) => {
-      try {
-        return Array.from(styleSheet.cssRules).map((rule) => rule.cssText).join('\n');
-      } catch {
-        return '';
-      }
-    })
-    .join('\n');
-
-  const base64ToBytes = (base64: string) => {
-    const binary = atob(base64);
-    const bytes = new Uint8Array(binary.length);
-    for (let i = 0; i < binary.length; i += 1) {
-      bytes[i] = binary.charCodeAt(i);
-    }
-    return bytes;
-  };
-
-  const captureElementAsJpeg = async (element: HTMLElement) => {
-    const rect = element.getBoundingClientRect();
-    const width = Math.max(1, Math.ceil(rect.width));
-    const height = Math.max(1, Math.ceil(rect.height));
-    const serializer = new XMLSerializer();
-    const clonedNode = element.cloneNode(true) as HTMLElement;
-    const styles = collectDocumentStyles();
-    const elementMarkup = serializer.serializeToString(clonedNode);
-    const svgMarkup = `
-      <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">
-        <foreignObject width="100%" height="100%">
-          <div xmlns="http://www.w3.org/1999/xhtml">
-            <style>${styles}</style>
-            ${elementMarkup}
-          </div>
-        </foreignObject>
-      </svg>
-    `;
-
-    const svgBlob = new Blob([svgMarkup], { type: 'image/svg+xml;charset=utf-8' });
-    const imageUrl = URL.createObjectURL(svgBlob);
-
-    try {
-      const image = await new Promise<HTMLImageElement>((resolve, reject) => {
-        const img = new Image();
-        img.onload = () => resolve(img);
-        img.onerror = () => reject(new Error('Impossible de capturer le tableau en image.'));
-        img.src = imageUrl;
-      });
-
-      const canvas = document.createElement('canvas');
-      canvas.width = width;
-      canvas.height = height;
-      const context = canvas.getContext('2d');
-      if (!context) {
-        throw new Error('Canvas non disponible pour l’export PDF.');
-      }
-
-      context.fillStyle = '#ffffff';
-      context.fillRect(0, 0, width, height);
-      context.drawImage(image, 0, 0);
-
-      const jpegBase64 = canvas.toDataURL('image/jpeg', 0.92).split(',')[1];
-      return { width, height, bytes: base64ToBytes(jpegBase64) };
-    } finally {
-      URL.revokeObjectURL(imageUrl);
-    }
-  };
-
-  const buildOverviewPdf = (summaryLines: string[], image: { width: number; height: number; bytes: Uint8Array }) => {
+  const buildOverviewPdf = (pages: string[][]) => {
     const encoder = new TextEncoder();
     const chunks: ArrayBuffer[] = [];
     const offsets: number[] = [0];
@@ -273,59 +204,42 @@ export default function RunTabView({ runId }: Props) {
       append('\nendobj\n');
     };
 
-    const pageWidth = 595;
-    const pageHeight = 842;
-    const imageMargin = 30;
-    const maxImageWidth = pageWidth - imageMargin * 2;
-    const maxImageHeight = pageHeight - imageMargin * 2;
-    const scale = Math.min(maxImageWidth / image.width, maxImageHeight / image.height, 1);
-    const renderWidth = image.width * scale;
-    const renderHeight = image.height * scale;
-    const renderX = (pageWidth - renderWidth) / 2;
-    const renderY = (pageHeight - renderHeight) / 2;
-
-    const textStream = encodePdfTextObject(summaryLines);
-    const imagePlacementStream = encode(`q\n${renderWidth.toFixed(2)} 0 0 ${renderHeight.toFixed(2)} ${renderX.toFixed(2)} ${renderY.toFixed(2)} cm\n/Im1 Do\nQ`);
+    const pageObjectIds = pages.map((_, index) => 4 + index * 2);
+    const contentObjectIds = pages.map((_, index) => 5 + index * 2);
 
     append('%PDF-1.4\n');
 
     writeObject(1, encode('<< /Type /Catalog /Pages 2 0 R >>'));
-    writeObject(2, encode('<< /Type /Pages /Kids [4 0 R 6 0 R] /Count 2 >>'));
+    writeObject(2, encode(`<< /Type /Pages /Kids [${pageObjectIds.map((id) => `${id} 0 R`).join(' ')}] /Count ${pages.length} >>`));
     writeObject(3, encode('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>'));
-    writeObject(4, encode('<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents 5 0 R >>'));
-    writeObject(5, concatBytes(
-      encode(`<< /Length ${textStream.length} >>\nstream\n`),
-      textStream,
-      encode('\nendstream'),
-    ));
-    writeObject(6, encode('<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /XObject << /Im1 7 0 R >> >> /Contents 8 0 R >>'));
-    writeObject(7, concatBytes(
-      encode(`<< /Type /XObject /Subtype /Image /Width ${image.width} /Height ${image.height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${image.bytes.length} >>\nstream\n`),
-      image.bytes,
-      encode('\nendstream'),
-    ));
-    writeObject(8, concatBytes(
-      encode(`<< /Length ${imagePlacementStream.length} >>\nstream\n`),
-      imagePlacementStream,
-      encode('\nendstream'),
-    ));
 
+    pages.forEach((lines, index) => {
+      const pageObjectId = pageObjectIds[index];
+      const contentObjectId = contentObjectIds[index];
+      const textStream = encodePdfTextObject(lines);
+
+      writeObject(pageObjectId, encode(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents ${contentObjectId} 0 R >>`));
+      writeObject(contentObjectId, concatBytes(
+        encode(`<< /Length ${textStream.length} >>\nstream\n`),
+        textStream,
+        encode('\nendstream'),
+      ));
+    });
+
+    const maxObjectId = 3 + pages.length * 2;
     const xrefOffset = totalLength;
-    append('xref\n0 9\n');
+    append(`xref\n0 ${maxObjectId + 1}\n`);
     append('0000000000 65535 f \n');
-    for (let i = 1; i <= 8; i += 1) {
+    for (let i = 1; i <= maxObjectId; i += 1) {
       append(`${String(offsets[i] ?? 0).padStart(10, '0')} 00000 n \n`);
     }
-    append(`trailer\n<< /Size 9 /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`);
+    append(`trailer\n<< /Size ${maxObjectId + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`);
 
     return new Blob(chunks, { type: 'application/pdf' });
   };
 
   const exportOverviewToPdf = async () => {
     if (selection !== 'overview' || isExportingPdf) return;
-
-    const tableElement = overviewTableRef.current;
-    if (!tableElement) return;
 
     setIsExportingPdf(true);
 
@@ -334,8 +248,14 @@ export default function RunTabView({ runId }: Props) {
         .map((axisLevel) => axes.find((axis) => String(axis.level_number) === axisLevel)?.label ?? axisLevel)
         .join(' > ');
 
-      const screenshot = await captureElementAsJpeg(tableElement);
-      const summaryLines = [
+      const dataLines = [
+        '--- Overview table ---',
+        'Label | Total | Remaining | OK | KO | NT | Scope',
+        ...overviewStats.map((stat) => `${'  '.repeat(stat.depth)}${stat.label} | ${stat.total} | ${stat.remaining} | ${stat.ok} | ${stat.ko} | ${stat.nt} | ${stat.scopeValidated.toFixed(0)}%`),
+        `Grand Total | ${grandTotalStats.total} | ${grandTotalStats.remaining} | ${grandTotalStats.ok} | ${grandTotalStats.ko} | ${grandTotalStats.nt} | ${grandTotalStats.scopeValidated.toFixed(0)}%`,
+      ];
+
+      const allLines = [
         'TNR Overview Export',
         `Projet: ${runMeta?.project_name ?? '-'}`,
         `Version: ${runMeta?.release_version ?? '-'}`,
@@ -344,10 +264,17 @@ export default function RunTabView({ runId }: Props) {
         `Axes: ${axisLabels || 'Aucun axe selectionne'}`,
         `Seuil Scope: ${scopeHighlightThreshold}%`,
         `Genere le: ${new Date().toLocaleString()}`,
-        'Page suivante: capture du tableau des resultats.',
+        '',
+        ...dataLines,
       ];
 
-      const blob = buildOverviewPdf(summaryLines, screenshot);
+      const linesPerPage = 48;
+      const pages: string[][] = [];
+      for (let index = 0; index < allLines.length; index += linesPerPage) {
+        pages.push(allLines.slice(index, index + linesPerPage));
+      }
+
+      const blob = buildOverviewPdf(pages);
       const link = document.createElement('a');
       const dateSlug = new Date().toISOString().slice(0, 10);
       link.href = URL.createObjectURL(blob);
@@ -425,7 +352,7 @@ export default function RunTabView({ runId }: Props) {
                 onClick={exportOverviewToPdf}
                 disabled={isExportingPdf || selectedOverviewAxes.length === 0}
               >
-                {isExportingPdf ? 'Export en cours...' : 'Export to PDF'}
+                {isExportingPdf ? 'PDF...' : 'PDF'}
               </Button>
             )}
             {selection !== 'overview' && (
@@ -495,7 +422,7 @@ export default function RunTabView({ runId }: Props) {
             {selectedOverviewAxes.length === 0 ? (
               <Typography variant="body2" color="text.secondary">Select an analytical axis in <strong>axis 1</strong> to display the overview table.</Typography>
             ) : (
-              <TableContainer ref={overviewTableRef} component={Paper} variant="outlined">
+              <TableContainer component={Paper} variant="outlined">
                 <Table size="small">
                   <TableHead>
                     <TableRow>
