@@ -1,5 +1,5 @@
 import { Add, Delete } from '@mui/icons-material';
-import { Box, Button, Chip, LinearProgress, List, ListItemButton, ListItemText, MenuItem, Paper, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography } from '@mui/material';
+import { Box, Button, Chip, List, ListItemButton, ListItemText, MenuItem, Paper, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography } from '@mui/material';
 import { useEffect, useMemo, useState } from 'react';
 import { API_ROUTES, apiFetch } from '../api/client';
 import type { TestBookAxis } from '../types';
@@ -23,15 +23,13 @@ interface Props { runId: number }
 type AxisValueStats = {
   key: string;
   depth: number;
-  axisLabel: string;
-  valueLabel: string;
-  pathLabel: string;
+  label: string;
   total: number;
-  executed: number;
   remaining: number;
-  passed: number;
-  completion: number;
-  quality: number;
+  ok: number;
+  ko: number;
+  nt: number;
+  scopeValidated: number;
 };
 
 export default function RunTabView({ runId }: Props) {
@@ -39,6 +37,7 @@ export default function RunTabView({ runId }: Props) {
   const [cases, setCases] = useState<RunCase[]>([]);
   const [selection, setSelection] = useState<string>('overview');
   const [statusFilter, setStatusFilter] = useState<'ALL' | RunCase['status']>('ALL');
+  const [overviewAxisSelections, setOverviewAxisSelections] = useState<string[]>([]);
 
   const load = async () => {
     const data = await apiFetch<{ axes: TestBookAxis[]; results: RunCase[] }>(API_ROUTES.runs.get(runId));
@@ -49,6 +48,10 @@ export default function RunTabView({ runId }: Props) {
   useEffect(() => {
     void load();
   }, [runId]);
+
+  useEffect(() => {
+    setOverviewAxisSelections((old) => axes.map((_, idx) => old[idx] ?? ''));
+  }, [axes]);
 
   const filteredCases = useMemo(() => {
     const analyticalFiltered = selection === 'overview'
@@ -75,41 +78,67 @@ export default function RunTabView({ runId }: Props) {
 
   const menuNodes = useMemo(() => buildNodes(0, [], cases), [cases, axes]);
 
+  const selectedOverviewAxes = useMemo(
+    () => overviewAxisSelections.filter((axisLevel) => axisLevel),
+    [overviewAxisSelections],
+  );
+
+  const summarizeCases = (source: RunCase[]) => {
+    const total = source.length;
+    const ok = source.filter((runCase) => runCase.status === 'PASS').length;
+    const ko = source.filter((runCase) => runCase.status === 'FAIL').length;
+    const nt = source.filter((runCase) => runCase.status === 'BLOCKED').length;
+    const remaining = source.filter((runCase) => runCase.status === 'NOT_RUN').length;
+
+    return {
+      total,
+      remaining,
+      ok,
+      ko,
+      nt,
+      scopeValidated: total > 0 ? (ok / total) * 100 : 0,
+    };
+  };
+
   const overviewStats = useMemo<AxisValueStats[]>(() => {
-    const buildCascadeStats = (levelIndex: number, source: RunCase[], parents: string[]): AxisValueStats[] => {
-      if (levelIndex >= axes.length) return [];
+    if (selectedOverviewAxes.length === 0) return [];
 
-      const axis = axes[levelIndex];
-      const levelKey = String(axis.level_number);
-      const values = Array.from(new Set(source.map((item) => item.analytical_values[levelKey]).filter(Boolean)));
+    const buildRows = (depth: number, source: RunCase[], keyParts: string[]): AxisValueStats[] => {
+      const axisLevel = selectedOverviewAxes[depth];
+      if (!axisLevel) return [];
 
-      return values.flatMap((value) => {
-        const scopedCases = source.filter((runCase) => runCase.analytical_values[levelKey] === value);
-        const executed = scopedCases.filter((runCase) => runCase.status === 'PASS' || runCase.status === 'FAIL').length;
-        const passed = scopedCases.filter((runCase) => runCase.status === 'PASS').length;
-        const total = scopedCases.length;
-        const currentPath = [...parents, value];
+      const axis = axes.find((item) => String(item.level_number) === axisLevel);
+      const values = Array.from(new Set(source.map((item) => item.analytical_values[axisLevel]).filter(Boolean)));
 
-        const current: AxisValueStats = {
-          key: [...parents, `${levelKey}=${value}`].join('|'),
-          depth: levelIndex,
-          axisLabel: axis.label,
-          valueLabel: value,
-          pathLabel: currentPath.join(' ▸ '),
-          total,
-          executed,
-          remaining: total - executed,
-          passed,
-          completion: total > 0 ? (executed / total) * 100 : 0,
-          quality: executed > 0 ? (passed / executed) * 100 : 0,
+      const orderedValues = axis
+        ? values.sort((a, b) => {
+            const aIdx = axis.values.findIndex((item) => item.value_label === a);
+            const bIdx = axis.values.findIndex((item) => item.value_label === b);
+            const safeA = aIdx === -1 ? Number.MAX_SAFE_INTEGER : aIdx;
+            const safeB = bIdx === -1 ? Number.MAX_SAFE_INTEGER : bIdx;
+            return safeA - safeB;
+          })
+        : values.sort((a, b) => a.localeCompare(b));
+
+      return orderedValues.flatMap((value) => {
+        const scopedCases = source.filter((runCase) => runCase.analytical_values[axisLevel] === value);
+        const metrics = summarizeCases(scopedCases);
+        const key = [...keyParts, `${axisLevel}=${value}`].join('|');
+        const row: AxisValueStats = {
+          key,
+          depth,
+          label: value,
+          ...metrics,
         };
 
-        return [current, ...buildCascadeStats(levelIndex + 1, scopedCases, currentPath)];
+        return [row, ...buildRows(depth + 1, scopedCases, [...keyParts, `${axisLevel}=${value}`])];
       });
     };
 
-    return buildCascadeStats(0, cases, []);
-  }, [axes, cases]);
+    return buildRows(0, cases, []);
+  }, [axes, cases, selectedOverviewAxes]);
+
+  const grandTotalStats = useMemo(() => summarizeCases(cases), [cases]);
 
   const setStatus = async (testRunCaseId: number, status: RunCase['status'], comment = '') => {
     await apiFetch(API_ROUTES.runs.setResult, { method: 'POST', bodyJson: { test_run_case_id: testRunCaseId, status, comment } });
@@ -187,36 +216,79 @@ export default function RunTabView({ runId }: Props) {
 
         {selection === 'overview' ? (
           <Stack spacing={1.5}>
-            {overviewStats.map((stat) => (
-              <Paper
-                key={stat.key}
-                variant="outlined"
-                sx={{ p: 1.5, ml: stat.depth * 2, borderLeft: stat.depth > 0 ? 3 : 1, borderLeftColor: stat.depth > 0 ? 'primary.main' : 'divider' }}
-              >
-                <Typography variant="subtitle2">Niveau {stat.depth + 1} · {stat.axisLabel} — {stat.valueLabel}</Typography>
-                <Typography variant="caption" color="text.secondary">{stat.pathLabel}</Typography>
-                <Stack direction="row" spacing={1} sx={{ my: 1, flexWrap: 'wrap' }}>
-                  <Chip size="small" label={`Total ${stat.total}`} />
-                  <Chip size="small" color="info" label={`Exécutés ${stat.executed}`} />
-                  <Chip size="small" label={`Restants ${stat.remaining}`} />
-                  <Chip size="small" color="success" label={`Pass ${stat.passed}`} />
-                </Stack>
-                <Typography variant="caption" color="text.secondary">Completion {stat.completion.toFixed(1)}%</Typography>
-                <LinearProgress
-                  variant="determinate"
-                  value={stat.completion}
-                  color={stat.completion >= 100 ? 'success' : stat.completion >= 50 ? 'warning' : 'error'}
-                  sx={{ height: 9, borderRadius: 999, mb: 1.25 }}
-                />
-                <Typography variant="caption" color="text.secondary">Quality {stat.quality.toFixed(1)}%</Typography>
-                <LinearProgress
-                  variant="determinate"
-                  value={stat.quality}
-                  color={stat.quality >= 80 ? 'success' : stat.quality >= 60 ? 'warning' : 'error'}
-                  sx={{ height: 9, borderRadius: 999 }}
-                />
-              </Paper>
-            ))}
+            <Stack direction="row" spacing={1.5} flexWrap="wrap" useFlexGap>
+              {axes.map((_, idx) => {
+                const current = overviewAxisSelections[idx] ?? '';
+                const alreadyPicked = new Set(overviewAxisSelections.filter((value, selectionIdx) => value && selectionIdx !== idx));
+                const axisOptions = axes.filter((axis) => !alreadyPicked.has(String(axis.level_number)) || String(axis.level_number) === current);
+
+                return (
+                  <TextField
+                    key={`overview-axis-${idx + 1}`}
+                    size="small"
+                    select
+                    label={`axis ${idx + 1}`}
+                    value={current}
+                    onChange={(e) => {
+                      const next = [...overviewAxisSelections];
+                      next[idx] = e.target.value;
+                      for (let i = idx + 1; i < next.length; i += 1) {
+                        next[i] = '';
+                      }
+                      setOverviewAxisSelections(next);
+                    }}
+                    sx={{ minWidth: 180 }}
+                  >
+                    <MenuItem value="">--</MenuItem>
+                    {axisOptions.map((axis) => (
+                      <MenuItem key={axis.level_number} value={String(axis.level_number)}>{axis.label}</MenuItem>
+                    ))}
+                  </TextField>
+                );
+              })}
+            </Stack>
+
+            {selectedOverviewAxes.length === 0 ? (
+              <Typography variant="body2" color="text.secondary">Select an analytical axis in <strong>axis 1</strong> to display the overview table.</Typography>
+            ) : (
+              <TableContainer component={Paper} variant="outlined">
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell sx={{ minWidth: 280 }}>Row Labels</TableCell>
+                      <TableCell align="right">Total Tests</TableCell>
+                      <TableCell align="right">Remaining</TableCell>
+                      <TableCell align="right">OK</TableCell>
+                      <TableCell align="right">KO</TableCell>
+                      <TableCell align="right">NT</TableCell>
+                      <TableCell align="right">% Scope Validated</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {overviewStats.map((stat) => (
+                      <TableRow key={stat.key}>
+                        <TableCell sx={{ pl: 2 + stat.depth * 3, fontWeight: stat.depth === 0 ? 700 : 400 }}>{stat.label}</TableCell>
+                        <TableCell align="right">{stat.total}</TableCell>
+                        <TableCell align="right">{stat.remaining}</TableCell>
+                        <TableCell align="right">{stat.ok}</TableCell>
+                        <TableCell align="right">{stat.ko}</TableCell>
+                        <TableCell align="right">{stat.nt}</TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 700 }}>{`${stat.scopeValidated.toFixed(0)}%`}</TableCell>
+                      </TableRow>
+                    ))}
+                    <TableRow>
+                      <TableCell sx={{ fontWeight: 700 }}>Grand Total</TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 700 }}>{grandTotalStats.total}</TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 700 }}>{grandTotalStats.remaining}</TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 700 }}>{grandTotalStats.ok}</TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 700 }}>{grandTotalStats.ko}</TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 700 }}>{grandTotalStats.nt}</TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 700 }}>{`${grandTotalStats.scopeValidated.toFixed(0)}%`}</TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            )}
           </Stack>
         ) : (
           <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: 620 }}>
