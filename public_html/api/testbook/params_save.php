@@ -5,7 +5,7 @@ $projectId = (int) ($body['project_id'] ?? 0);
 $axes = $body['axes'] ?? null;
 
 if ($projectId <= 0 || !is_array($axes) || count($axes) < 1) {
-    json_response(['message' => 'project_id et axes (min 1) obligatoires'], 422);
+    json_response(['message' => 'project_id and axes (min 1) are required'], 422);
 }
 require_project_membership($projectId, (int) $user['id']);
 
@@ -23,7 +23,7 @@ try {
         $label = trim((string) ($axis['label'] ?? ''));
         $values = $axis['values'] ?? null;
         if ($label === '' || !is_array($values) || count($values) < 1) {
-            throw new RuntimeException('Chaque axe doit contenir un libellé et au moins une valeur');
+            throw new RuntimeException('Each axis must include a label and at least one value');
         }
 
         $insertAxis->execute([$projectId, $level, $label]);
@@ -40,7 +40,7 @@ try {
         }
 
         if ($sortOrder === 1) {
-            throw new RuntimeException('Chaque axe doit avoir au moins une valeur non vide');
+            throw new RuntimeException('Each axis must contain at least one non-empty value');
         }
 
         $level++;

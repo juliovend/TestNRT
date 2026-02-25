@@ -7,7 +7,7 @@ $comment = trim($body['comment'] ?? '');
 $touchExecution = array_key_exists('touch_execution', $body) ? ((int) $body['touch_execution'] === 1) : true;
 $allowed = ['PASS', 'FAIL', 'BLOCKED', 'SKIPPED', 'NOT_RUN'];
 if ($testRunCaseId <= 0 || !in_array($status, $allowed, true)) {
-    json_response(['message' => 'test_run_case_id ou status invalide'], 422);
+    json_response(['message' => 'test_run_case_id or invalid status'], 422);
 }
 
 $stmt = db()->prepare('SELECT tr.id AS run_id, tr.project_id
@@ -17,7 +17,7 @@ WHERE trc.id = ?');
 $stmt->execute([$testRunCaseId]);
 $row = $stmt->fetch();
 if (!$row) {
-    json_response(['message' => 'Test run case introuvable'], 404);
+    json_response(['message' => 'Test run case not found'], 404);
 }
 require_project_membership((int) $row['project_id'], (int) $user['id']);
 

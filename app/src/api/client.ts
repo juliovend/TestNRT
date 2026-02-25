@@ -75,6 +75,6 @@ export async function apiFetch<T>(url: string, options: ApiOptions = {}): Promis
   });
   let payload: any = null;
   try { payload = await response.json(); } catch {}
-  if (!response.ok) throw new Error(payload?.message || response.statusText || `Erreur API (${response.status})`);
+  if (!response.ok) throw new Error(payload?.message || response.statusText || `API error (${response.status})`);
   return (payload ?? {}) as T;
 }

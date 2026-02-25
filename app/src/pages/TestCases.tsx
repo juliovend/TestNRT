@@ -29,11 +29,11 @@ export default function TestCases() {
       <Typography variant="h5">Test cases</Typography>
       <Stack direction="row" spacing={2}>
         <TextField label="Project ID" value={projectId} onChange={(e) => setProjectId(e.target.value)} />
-        <Button onClick={load}>Charger</Button>
+        <Button onClick={load}>Load</Button>
       </Stack>
       <TextField label="Titre" value={title} onChange={(e) => setTitle(e.target.value)} />
       <TextField label="Steps" value={steps} onChange={(e) => setSteps(e.target.value)} multiline minRows={3} />
-      <Button variant="contained" onClick={create}>Créer test case</Button>
+      <Button variant="contained" onClick={create}>Create test case</Button>
       <List>
         {items.map((t) => <ListItem key={t.id}><ListItemText primary={t.title} secondary={t.steps} /></ListItem>)}
       </List>

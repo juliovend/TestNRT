@@ -2,7 +2,7 @@
 $user = require_login();
 $projectId = (int) ($_GET['project_id'] ?? 0);
 if ($projectId <= 0) {
-    json_response(['message' => 'project_id obligatoire'], 422);
+    json_response(['message' => 'project_id is required'], 422);
 }
 require_project_membership($projectId, (int) $user['id']);
 

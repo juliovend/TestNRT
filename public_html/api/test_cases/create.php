@@ -7,7 +7,7 @@ $steps = trim($body['steps'] ?? '');
 $expectedResult = trim($body['expected_result'] ?? '');
 
 if ($projectId <= 0 || $title === '' || $steps === '') {
-    json_response(['message' => 'project_id, title et steps obligatoires'], 422);
+    json_response(['message' => 'project_id, title and steps are required'], 422);
 }
 require_project_membership($projectId, (int) $user['id']);
 

@@ -266,13 +266,13 @@ export default function RunTabView({ runId }: Props) {
 
       const allLines = [
         'TNR Overview Export',
-        `Projet: ${runMeta?.project_name ?? '-'}`,
-        `Version: ${runMeta?.release_version ?? '-'}`,
+        `Project: ${runMeta?.project_name ?? '-'}`,
+        `Release: ${runMeta?.release_version ?? '-'}`,
         `Run: ${runMeta?.run_number ?? '-'}`,
         `Run ID: ${runId}`,
-        `Axes: ${axisLabels || 'Aucun axe selectionne'}`,
+        `Axes: ${axisLabels || 'No axis selected'}`,
         `Seuil Scope: ${scopeHighlightThreshold}%`,
-        `Genere le: ${new Date().toLocaleString()}`,
+        `Generated on: ${new Date().toLocaleString()}`,
         '',
         ...dataLines,
       ];
@@ -292,7 +292,7 @@ export default function RunTabView({ runId }: Props) {
       URL.revokeObjectURL(link.href);
     } catch (error) {
       console.error(error);
-      alert('Export PDF impossible. Vérifie que le tableau est visible puis réessaie.');
+      alert('PDF export failed. Make sure the table is visible, then try again.');
     } finally {
       setIsExportingPdf(false);
     }
@@ -380,7 +380,7 @@ export default function RunTabView({ runId }: Props) {
                   onChange={(e) => setStatusFilter(e.target.value as 'ALL' | RunCase['status'])}
                   sx={{ minWidth: 160 }}
                 >
-                  <MenuItem value="ALL">Tous</MenuItem>
+                  <MenuItem value="ALL">All</MenuItem>
                   <MenuItem value="PASS">PASS</MenuItem>
                   <MenuItem value="FAIL">FAIL</MenuItem>
                   <MenuItem value="BLOCKED">BLOCKED</MenuItem>
@@ -393,7 +393,7 @@ export default function RunTabView({ runId }: Props) {
                     await load();
                   }}
                 >
-                  Ajouter cas
+                  Add case
                 </Button>
               </>
             )}

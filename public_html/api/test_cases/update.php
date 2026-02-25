@@ -11,7 +11,7 @@ $stmt = db()->prepare('SELECT project_id FROM test_cases WHERE id = ?');
 $stmt->execute([$id]);
 $row = $stmt->fetch();
 if (!$row) {
-    json_response(['message' => 'Test case introuvable'], 404);
+    json_response(['message' => 'Test case not found'], 404);
 }
 require_project_membership((int) $row['project_id'], (int) $user['id']);
 

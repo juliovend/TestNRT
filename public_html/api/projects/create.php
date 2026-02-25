@@ -6,11 +6,11 @@ $description = trim($body['description'] ?? '');
 $assignedEmails = $body['assigned_emails'] ?? [];
 
 if ($name === '') {
-    json_response(['message' => 'Le nom du projet est obligatoire'], 422);
+    json_response(['message' => 'Project name is required'], 422);
 }
 
 if (!is_array($assignedEmails)) {
-    json_response(['message' => 'assigned_emails doit être une liste'], 422);
+    json_response(['message' => 'assigned_emails must be a list'], 422);
 }
 
 $normalizedEmails = [];
@@ -53,5 +53,5 @@ try {
     json_response(['project_id' => $projectId], 201);
 } catch (Throwable $e) {
     $pdo->rollBack();
-    json_response(['message' => 'Erreur création projet', 'details' => $e->getMessage()], 500);
+    json_response(['message' => 'Error creating project', 'details' => $e->getMessage()], 500);
 }

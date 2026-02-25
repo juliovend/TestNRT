@@ -8,7 +8,7 @@ $stmt->execute([$email]);
 $user = $stmt->fetch();
 
 if (!$user || empty($user['password_hash']) || !password_verify($password, $user['password_hash'])) {
-    json_response(['message' => 'Identifiants invalides'], 401);
+    json_response(['message' => 'Invalid credentials'], 401);
 }
 
 $_SESSION['user_id'] = (int) $user['id'];

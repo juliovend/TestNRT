@@ -5,14 +5,14 @@ $releaseId = (int) ($body['release_id'] ?? 0);
 $version = trim($body['version'] ?? '');
 $notes = trim($body['notes'] ?? '');
 if ($releaseId <= 0 || $version === '') {
-    json_response(['message' => 'release_id et version obligatoires'], 422);
+    json_response(['message' => 'release_id and version are required'], 422);
 }
 
 $stmt = db()->prepare('SELECT project_id FROM releases WHERE id = ?');
 $stmt->execute([$releaseId]);
 $release = $stmt->fetch();
 if (!$release) {
-    json_response(['message' => 'Version introuvable'], 404);
+    json_response(['message' => 'Release not found'], 404);
 }
 require_project_membership((int) $release['project_id'], (int) $user['id']);
 

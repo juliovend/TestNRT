@@ -45,8 +45,8 @@ type CaseFilters = {
 
 const defaultAxis = (level: number): TestBookAxis => ({
   level_number: level,
-  label: `Axe ${level}`,
-  values: [{ value_label: 'Valeur 1' }],
+  label: `Axis ${level}`,
+  values: [{ value_label: 'Value 1' }],
 });
 
 const defaultFilters = (): CaseFilters => ({
@@ -112,7 +112,7 @@ export default function Dashboard() {
       setProjects(data.projects);
     } catch (err) {
       setProjects([]);
-      setError(err instanceof Error ? err.message : 'Erreur lors du chargement des projets');
+      setError(err instanceof Error ? err.message : 'Error while loading projects');
     }
   };
 
@@ -251,13 +251,13 @@ export default function Dashboard() {
     try {
       await saveProjectOrder(reordered);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erreur lors de la sauvegarde de l'ordre des projets");
+      setError(err instanceof Error ? err.message : "Error while saving project order");
       await load();
     }
   };
 
   const deleteProject = async (project: Project) => {
-    if (!confirm(`Supprimer le projet "${project.name}" ? Cette action est irréversible.`)) return;
+    if (!confirm(`Delete project "${project.name}" ? This action is irreversible.`)) return;
 
     await apiFetch(API_ROUTES.projects.delete, {
       method: 'POST',
@@ -504,7 +504,7 @@ export default function Dashboard() {
                           size="small"
                           color="error"
                           onClick={async () => {
-                            if (confirm('Supprimer cette version ?')) {
+                            if (confirm('Delete this version?')) {
                               await apiFetch(API_ROUTES.releases.delete, {
                                 method: 'POST',
                                 bodyJson: { release_id: release.id },
@@ -525,7 +525,7 @@ export default function Dashboard() {
                         <Stack key={run.id} direction="row" justifyContent="space-between" alignItems="center" sx={{ gap: 1 }}>
                           <Stack direction="row" spacing={1.2} alignItems="center">
                             <Typography variant="body2">Run #{run.run_number}</Typography>
-                            <Typography variant="body2" color="text.secondary">{`${run.summary.total} cas de tests`}</Typography>
+                            <Typography variant="body2" color="text.secondary">{`${run.summary.total} test cases`}</Typography>
                             <Typography variant="body2" sx={getScopeHighlightSx(run.scope_validated, runScopeThreshold)}>{`${run.scope_validated.toFixed(0)}% Scope Validated`}</Typography>
                           </Stack>
                           <Stack direction="row">
@@ -545,7 +545,7 @@ export default function Dashboard() {
                               size="small"
                               color="error"
                               onClick={async () => {
-                                if (confirm('Supprimer ce run ?')) {
+                                if (confirm('Delete this run?')) {
                                   await apiFetch(API_ROUTES.runs.delete, {
                                     method: 'POST',
                                     bodyJson: { run_id: run.id },
@@ -611,11 +611,11 @@ export default function Dashboard() {
 
           <Paper sx={{ flex: 1, p: 2 }}>
             {tbLoading ? (
-              <Typography>Chargement...</Typography>
+              <Typography>Loading...</Typography>
             ) : section === 'parameters' ? (
               <Stack spacing={2}>
                 <Stack direction="row" justifyContent="space-between" alignItems="center">
-                  <Typography variant="h6">Paramètres du Test Book</Typography>
+                  <Typography variant="h6">Test Book settings</Typography>
                   <Button
                     variant="contained"
                     startIcon={<Save />}
@@ -633,7 +633,7 @@ export default function Dashboard() {
                         <TextField
                           size="small"
                           fullWidth
-                          label={`Niveau ${idx + 1}`}
+                          label={`Level ${idx + 1}`}
                           value={axis.label}
                           onChange={(e) => {
                             const next = tbAxes.map((a, i) => (i === idx ? { ...a, label: e.target.value } : a));
@@ -659,7 +659,7 @@ export default function Dashboard() {
                           <TextField
                             size="small"
                             fullWidth
-                            label={`Valeur ${valueIdx + 1}`}
+                            label={`Value ${valueIdx + 1}`}
                             value={value.value_label}
                             onChange={(e) => {
                               const next = tbAxes.map((a, i) => {
@@ -695,13 +695,13 @@ export default function Dashboard() {
                         size="small"
                         onClick={() => {
                           const next = tbAxes.map((a, i) =>
-                            i !== idx ? a : { ...a, values: [...a.values, { value_label: `Valeur ${a.values.length + 1}` }] },
+                            i !== idx ? a : { ...a, values: [...a.values, { value_label: `Value ${a.values.length + 1}` }] },
                           );
                           setTbAxes(next);
                           setTbParamsDirty(true);
                         }}
                       >
-                        Ajouter une valeur
+                        Add a value
                       </Button>
                     </Stack>
                   </Paper>
@@ -714,7 +714,7 @@ export default function Dashboard() {
                     setTbParamsDirty(true);
                   }}
                 >
-                  Ajouter un axe
+                  Add an axis
                 </Button>
               </Stack>
             ) : (
@@ -738,7 +738,7 @@ export default function Dashboard() {
                         await loadTestBook(currentProjectId);
                       }}
                     >
-                      Ajouter en fin
+                      Add at end
                     </Button>
                     <Button
                       variant="contained"
@@ -760,8 +760,8 @@ export default function Dashboard() {
                           <TableCell key={axis.level_number}>{axis.label}</TableCell>
                         ))}
                         <TableCell>Description</TableCell>
-                        <TableCell>Résultat attendu</TableCell>
-                        <TableCell>Pièces jointes</TableCell>
+                        <TableCell>Expected result</TableCell>
+                        <TableCell>Attachments</TableCell>
                         <TableCell align="center">Actions</TableCell>
                       </TableRow>
                       <TableRow>
@@ -889,7 +889,7 @@ export default function Dashboard() {
                                   <Stack direction="row" spacing={0.75} alignItems="center">
                                     <CloudUpload fontSize="small" color="action" />
                                     <Typography variant="caption" color="text.secondary">
-                                      Glisser-déposer un ou plusieurs fichiers, ou cliquer
+                                      Drag and drop one or more files, or click
                                     </Typography>
                                   </Stack>
                                 </Box>

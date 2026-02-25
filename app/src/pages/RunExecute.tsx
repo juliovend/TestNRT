@@ -66,7 +66,7 @@ export default function RunExecute() {
       setDetails(data);
       selectNextNotRun(data.results);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Erreur inconnue');
+      setError(e instanceof Error ? e.message : 'Unknown error');
     }
   };
 
@@ -112,12 +112,12 @@ export default function RunExecute() {
 
   return (
     <Stack spacing={2}>
-      <Typography variant="h5">Exécuter un run</Typography>
+      <Typography variant="h5">Execute a run</Typography>
       <Stack direction="row" spacing={2}>
         <TextField label="Run ID" value={runId} onChange={(e) => setRunId(e.target.value)} />
-        <Button variant="outlined" onClick={exportCsv}>Exporter CSV</Button>
+        <Button variant="outlined" onClick={exportCsv}>Export CSV</Button>
         <Button variant="contained" onClick={load}>
-          Charger
+          Load
         </Button>
       </Stack>
 
@@ -126,12 +126,12 @@ export default function RunExecute() {
       {details ? (
         <Paper sx={{ p: 2 }}>
           <Stack spacing={1}>
-            <Typography variant="subtitle1">Résumé du run</Typography>
+            <Typography variant="subtitle1">Run summary</Typography>
             <Stack direction="row" spacing={1} flexWrap="wrap">
               <Chip label={`Total: ${total}`} />
-              <Chip label={`Exécutés: ${executed}`} color="primary" />
-              <Chip label={`Restants: ${remaining}`} color="warning" />
-              <Chip label={`Progression: ${progress}%`} color="success" />
+              <Chip label={`Executed: ${executed}`} color="primary" />
+              <Chip label={`Remaining: ${remaining}`} color="warning" />
+              <Chip label={`Progress: ${progress}%`} color="success" />
               <Chip label={`PASS: ${details.summary.pass}`} color="success" variant="outlined" />
               <Chip label={`FAIL: ${details.summary.fail}`} color="error" variant="outlined" />
               <Chip label={`BLOCKED: ${details.summary.blocked}`} color="warning" variant="outlined" />
@@ -146,14 +146,14 @@ export default function RunExecute() {
         <Paper sx={{ p: 2, width: { xs: '100%', md: '45%' } }}>
           <Stack spacing={2}>
             <FormControl fullWidth>
-              <InputLabel id="run-status-filter-label">Filtre status</InputLabel>
+              <InputLabel id="run-status-filter-label">Status filter</InputLabel>
               <Select
                 labelId="run-status-filter-label"
-                label="Filtre status"
+                label="Status filter"
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
               >
-                <MenuItem value="ALL">Tous</MenuItem>
+                <MenuItem value="ALL">All</MenuItem>
                 <MenuItem value="NOT_RUN">NOT_RUN</MenuItem>
                 <MenuItem value="PASS">PASS</MenuItem>
                 <MenuItem value="FAIL">FAIL</MenuItem>
@@ -184,18 +184,18 @@ export default function RunExecute() {
 
         <Paper sx={{ p: 2, flex: 1 }}>
           <Stack spacing={2}>
-            <Typography variant="subtitle1">Mode suivant: prochain test NOT_RUN</Typography>
+            <Typography variant="subtitle1">Next mode: next NOT_RUN test</Typography>
 
             {selectedResult ? (
               <>
                 <Typography variant="body1">
-                  <strong>Test sélectionné:</strong> #{selectedResult.test_run_case_id} - {selectedResult.title}
+                  <strong>Selected test:</strong> #{selectedResult.test_run_case_id} - {selectedResult.title}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
                   {selectedResult.steps}
                 </Typography>
                 <TextField
-                  label="Commentaire"
+                  label="Comment"
                   value={comment}
                   onChange={(e) => setComment(e.target.value)}
                   fullWidth
@@ -220,7 +220,7 @@ export default function RunExecute() {
                 </Box>
               </>
             ) : (
-              <Typography color="text.secondary">Aucun test disponible pour ce filtre.</Typography>
+              <Typography color="text.secondary">No tests available for this filter.</Typography>
             )}
           </Stack>
         </Paper>

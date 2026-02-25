@@ -27,14 +27,14 @@ export default function Projects() {
       <Typography variant="h5">Projects</Typography>
       <Paper sx={{ p: 2 }}>
         <Stack direction="row" spacing={2}>
-          <TextField label="Nom du projet" value={name} onChange={(e) => setName(e.target.value)} />
-          <Button variant="contained" onClick={create}>Créer</Button>
+          <TextField label="Project name" value={name} onChange={(e) => setName(e.target.value)} />
+          <Button variant="contained" onClick={create}>Create</Button>
         </Stack>
       </Paper>
       <List>
         {items.map((project) => (
           <ListItem key={project.id}>
-            <ListItemText primary={project.name} secondary={project.description || 'Sans description'} />
+            <ListItemText primary={project.name} secondary={project.description || 'No description'} />
           </ListItem>
         ))}
       </List>

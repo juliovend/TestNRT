@@ -47,7 +47,7 @@ export default function AppLayout({ user, onLogout }: Props) {
 
           <Stack direction="row" spacing={1.5} alignItems="center">
             <Typography color="text.secondary" sx={{ display: { xs: 'none', md: 'block' } }}>
-              Qualité logicielle, version turbo 🚀
+              Software quality, turbo edition 🚀
             </Typography>
             <Stack direction="row" spacing={1.2} alignItems="center">
               <Avatar sx={{ bgcolor: 'primary.main', width: 30, height: 30 }}>{userInitials}</Avatar>
