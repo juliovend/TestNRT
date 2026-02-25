@@ -1,4 +1,4 @@
-import { Add, Delete } from '@mui/icons-material';
+import { Add, Delete, PictureAsPdf } from '@mui/icons-material';
 import { Box, Button, Chip, List, ListItemButton, ListItemText, MenuItem, Paper, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography } from '@mui/material';
 import { useEffect, useMemo, useState } from 'react';
 import { API_ROUTES, apiFetch } from '../api/client';
@@ -153,6 +153,118 @@ export default function RunTabView({ runId }: Props) {
       : {}),
   });
 
+  const sanitizePdfText = (value: string) => value
+    .replace(/\\/g, '\\\\')
+    .replace(/\(/g, '\\(')
+    .replace(/\)/g, '\\)')
+    .replace(/[^\x20-\x7E]/g, '?');
+
+  const buildSimplePdf = (pages: string[][]) => {
+    const encoder = new TextEncoder();
+    const objects: string[] = [];
+    const pageObjectIds: number[] = [];
+    const fontObjectId = 3;
+    let nextObjectId = 4;
+
+    objects[1] = '<< /Type /Catalog /Pages 2 0 R >>';
+    objects[fontObjectId] = '<< /Type /Font /Subtype /Type1 /BaseFont /Courier >>';
+
+    pages.forEach((lines) => {
+      const pageObjectId = nextObjectId;
+      const contentObjectId = nextObjectId + 1;
+      nextObjectId += 2;
+
+      const stream = `BT\n/F1 9 Tf\n12 TL\n40 802 Td\n${lines.map((line) => `(${sanitizePdfText(line)}) Tj`).join('\nT*\n')}\nET`;
+      const streamLength = encoder.encode(stream).length;
+      objects[contentObjectId] = `<< /Length ${streamLength} >>\nstream\n${stream}\nendstream`;
+      objects[pageObjectId] = `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 ${fontObjectId} 0 R >> >> /Contents ${contentObjectId} 0 R >>`;
+      pageObjectIds.push(pageObjectId);
+    });
+
+    objects[2] = `<< /Type /Pages /Kids [${pageObjectIds.map((id) => `${id} 0 R`).join(' ')}] /Count ${pageObjectIds.length} >>`;
+
+    let pdf = '%PDF-1.4\n';
+    const offsets: number[] = [0];
+    for (let i = 1; i < objects.length; i += 1) {
+      if (!objects[i]) continue;
+      offsets[i] = pdf.length;
+      pdf += `${i} 0 obj\n${objects[i]}\nendobj\n`;
+    }
+
+    const xrefOffset = pdf.length;
+    pdf += `xref\n0 ${objects.length}\n`;
+    pdf += '0000000000 65535 f \n';
+    for (let i = 1; i < objects.length; i += 1) {
+      const offset = offsets[i] ?? 0;
+      pdf += `${String(offset).padStart(10, '0')} 00000 n \n`;
+    }
+    pdf += `trailer\n<< /Size ${objects.length} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`;
+
+    return new Blob([encoder.encode(pdf)], { type: 'application/pdf' });
+  };
+
+  const exportOverviewToPdf = () => {
+    if (selection !== 'overview') return;
+
+    const axisLabels = selectedOverviewAxes
+      .map((axisLevel) => axes.find((axis) => String(axis.level_number) === axisLevel)?.label ?? axisLevel)
+      .join(' > ');
+
+    const headers = ['Row Labels', 'Total', 'Remaining', 'OK', 'KO', 'NT', '% Scope'];
+    const rows = overviewStats.map((stat) => {
+      const marker = stat.scopeValidated > scopeHighlightThreshold ? ' ▲' : '';
+      return [
+        `${'  '.repeat(stat.depth)}${stat.label}`,
+        String(stat.total),
+        String(stat.remaining),
+        String(stat.ok),
+        String(stat.ko),
+        String(stat.nt),
+        `${stat.scopeValidated.toFixed(0)}%${marker}`,
+      ];
+    });
+
+    rows.push([
+      'Grand Total',
+      String(grandTotalStats.total),
+      String(grandTotalStats.remaining),
+      String(grandTotalStats.ok),
+      String(grandTotalStats.ko),
+      String(grandTotalStats.nt),
+      `${grandTotalStats.scopeValidated.toFixed(0)}%${grandTotalStats.scopeValidated > scopeHighlightThreshold ? ' ▲' : ''}`,
+    ]);
+
+    const tableData = [headers, ...rows];
+    const columnWidths = headers.map((header, idx) => Math.max(header.length, ...tableData.map((row) => row[idx]?.length ?? 0)));
+    const toLine = (row: string[]) => row.map((cell, idx) => cell.padEnd(columnWidths[idx], ' ')).join(' | ');
+
+    const maxLinesPerPage = 58;
+    const allLines = [
+      'TNR Overview Export',
+      `Run ID: ${runId}`,
+      `Generated: ${new Date().toLocaleString()}`,
+      `Axes: ${axisLabels || 'None selected'}`,
+      `Scope highlight threshold: ${scopeHighlightThreshold}% ("▲" means highlighted)`,
+      '',
+      toLine(headers),
+      columnWidths.map((width) => '-'.repeat(width)).join('-+-'),
+      ...rows.map((row) => toLine(row)),
+    ];
+
+    const pages: string[][] = [];
+    for (let index = 0; index < allLines.length; index += maxLinesPerPage) {
+      pages.push(allLines.slice(index, index + maxLinesPerPage));
+    }
+
+    const blob = buildSimplePdf(pages);
+    const link = document.createElement('a');
+    const dateSlug = new Date().toISOString().slice(0, 10);
+    link.href = URL.createObjectURL(blob);
+    link.download = `overview-run-${runId}-${dateSlug}.pdf`;
+    link.click();
+    URL.revokeObjectURL(link.href);
+  };
+
   const setStatus = async (testRunCaseId: number, status: RunCase['status'], comment = '') => {
     await apiFetch(API_ROUTES.runs.setResult, { method: 'POST', bodyJson: { test_run_case_id: testRunCaseId, status, comment } });
     await load();
@@ -210,6 +322,15 @@ export default function RunTabView({ runId }: Props) {
               inputProps={{ min: 0, max: 100, step: 1 }}
               sx={{ width: 150 }}
             />
+            {selection === 'overview' && (
+              <Button
+                variant="contained"
+                startIcon={<PictureAsPdf />}
+                onClick={exportOverviewToPdf}
+              >
+                Export to PDF
+              </Button>
+            )}
             {selection !== 'overview' && (
               <>
                 <TextField
