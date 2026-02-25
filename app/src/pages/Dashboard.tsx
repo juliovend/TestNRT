@@ -1,4 +1,4 @@
-import { Add, Delete, DragIndicator, GroupAdd, MenuBook, PlayArrow, Refresh, Save } from '@mui/icons-material';
+import { Add, AttachFile, CloudUpload, Delete, DragIndicator, GroupAdd, MenuBook, PlayArrow, Refresh, Save } from '@mui/icons-material';
 import {
   Alert,
   Box,
@@ -26,7 +26,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { API_ROUTES, apiFetch } from '../api/client';
 import RunTabView from '../components/RunTabView';
 import { getRunScopeHighlightThreshold, getScopeHighlightSx } from '../utils/runScope';
@@ -59,6 +59,20 @@ const defaultFilters = (): CaseFilters => ({
 
 const normalize = (value: string) => value.toLowerCase().trim();
 
+
+const parseAttachment = (entry: string) => {
+  const separatorIndex = entry.indexOf('::');
+  if (separatorIndex === -1) {
+    return { label: entry, stored: '', isLegacy: true };
+  }
+
+  return {
+    label: entry.slice(0, separatorIndex),
+    stored: entry.slice(separatorIndex + 2),
+    isLegacy: false,
+  };
+};
+
 export default function Dashboard() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -84,7 +98,9 @@ export default function Dashboard() {
   const [tbSaving, setTbSaving] = useState(false);
   const [tbParamsDirty, setTbParamsDirty] = useState(false);
   const [tbCasesDirty, setTbCasesDirty] = useState(false);
+  const [tbUploadingCaseId, setTbUploadingCaseId] = useState<number | null>(null);
   const [caseFilters, setCaseFilters] = useState<CaseFilters>(defaultFilters());
+  const fileInputRefs = useRef<Record<number, HTMLInputElement | null>>({});
 
   const currentTab = tabs.find((t) => t.id === activeTab);
   const currentProjectId = currentTab?.kind === 'testbook' ? Number(currentTab.id.replace('tb-', '')) : null;
@@ -298,6 +314,36 @@ export default function Dashboard() {
   const updateCase = (caseId: number, patch: Partial<TestBookCase>) => {
     setTbCases((old) => old.map((item) => (item.id === caseId ? { ...item, ...patch } : item)));
     setTbCasesDirty(true);
+  };
+
+
+  const uploadAttachments = async (caseId: number, files: FileList | File[]) => {
+    if (!currentProjectId) return;
+    const fileList = Array.from(files);
+    if (fileList.length === 0) return;
+
+    const formData = new FormData();
+    formData.append('project_id', String(currentProjectId));
+    formData.append('case_id', String(caseId));
+    fileList.forEach((file) => formData.append('files[]', file));
+
+    setTbUploadingCaseId(caseId);
+    try {
+      const response = await fetch(API_ROUTES.testbook.attachmentsUpload, {
+        method: 'POST',
+        credentials: 'include',
+        body: formData,
+      });
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(payload?.message || 'Upload impossible');
+      }
+
+      const attachments = Array.isArray(payload?.attachments) ? payload.attachments : [];
+      setTbCases((old) => old.map((item) => (item.id === caseId ? { ...item, attachments } : item)));
+    } finally {
+      setTbUploadingCaseId(null);
+    }
   };
 
   const filteredCases = useMemo(() => {
@@ -819,21 +865,71 @@ export default function Dashboard() {
                               />
                             </TableCell>
                             <TableCell>
-                              <TextField
-                                size="small"
-                                fullWidth
-                                multiline
-                                minRows={2}
-                                value={item.attachments.join('\n')}
-                                onChange={(e) =>
-                                  updateCase(item.id, {
-                                    attachments: e.target.value
-                                      .split('\n')
-                                      .map((x) => x.trim())
-                                      .filter(Boolean),
-                                  })
-                                }
-                              />
+                              <Stack spacing={1}>
+                                <Box
+                                  onDragOver={(event) => {
+                                    event.preventDefault();
+                                  }}
+                                  onDrop={(event) => {
+                                    event.preventDefault();
+                                    void uploadAttachments(item.id, event.dataTransfer.files);
+                                  }}
+                                  onClick={() => fileInputRefs.current[item.id]?.click()}
+                                  sx={{
+                                    border: '1px dashed',
+                                    borderColor: 'divider',
+                                    borderRadius: 1,
+                                    px: 1,
+                                    py: 0.75,
+                                    cursor: 'pointer',
+                                    backgroundColor: 'background.default',
+                                  }}
+                                >
+                                  <Stack direction="row" spacing={0.75} alignItems="center">
+                                    <CloudUpload fontSize="small" color="action" />
+                                    <Typography variant="caption" color="text.secondary">
+                                      Glisser-déposer un ou plusieurs fichiers, ou cliquer
+                                    </Typography>
+                                  </Stack>
+                                </Box>
+                                <input
+                                  ref={(ref) => {
+                                    fileInputRefs.current[item.id] = ref;
+                                  }}
+                                  type="file"
+                                  hidden
+                                  multiple
+                                  onChange={(event) => {
+                                    if (event.target.files?.length) {
+                                      void uploadAttachments(item.id, event.target.files);
+                                    }
+                                    event.target.value = '';
+                                  }}
+                                />
+
+                                {tbUploadingCaseId === item.id ? <Typography variant="caption">Upload en cours…</Typography> : null}
+
+                                <Stack spacing={0.5}>
+                                  {item.attachments.map((entry, attachmentIndex) => {
+                                    const attachment = parseAttachment(entry);
+                                    const openUrl = attachment.isLegacy
+                                      ? attachment.label
+                                      : API_ROUTES.testbook.attachmentsOpen(currentProjectId, item.id, attachment.stored);
+
+                                    return (
+                                      <Button
+                                        key={`${item.id}-attachment-${attachmentIndex}`}
+                                        size="small"
+                                        startIcon={<AttachFile fontSize="small" />}
+                                        onClick={() => window.open(openUrl, '_blank', 'noopener,noreferrer')}
+                                        sx={{ justifyContent: 'flex-start' }}
+                                      >
+                                        {attachment.label}
+                                      </Button>
+                                    );
+                                  })}
+                                </Stack>
+                              </Stack>
                             </TableCell>
                             <TableCell align="center">
                               <Stack direction="row" spacing={0.5} justifyContent="center">
@@ -907,6 +1003,7 @@ export default function Dashboard() {
     tbCases,
     tbCasesDirty,
     tbLoading,
+    tbUploadingCaseId,
     tbParamsDirty,
     tbSaving,
     tbSectionByTab,
