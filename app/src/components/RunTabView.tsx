@@ -168,189 +168,110 @@ export default function RunTabView({ runId }: Props) {
     .replace(/\)/g, '\\)')
     .replace(/[^\x20-\x7E]/g, '?');
 
-  const cloneWithComputedStyles = (node: HTMLElement) => {
-    const clone = node.cloneNode(true) as HTMLElement;
-
-    const applyStyles = (source: Element, target: Element) => {
-      if (source instanceof HTMLElement && target instanceof HTMLElement) {
-        const computed = window.getComputedStyle(source);
-        const cssText = Array.from(computed)
-          .map((prop) => `${prop}:${computed.getPropertyValue(prop)};`)
-          .join('');
-        target.style.cssText = cssText;
-      }
-
-      const sourceChildren = Array.from(source.children);
-      const targetChildren = Array.from(target.children);
-      sourceChildren.forEach((sourceChild, idx) => {
-        const targetChild = targetChildren[idx];
-        if (targetChild) {
-          applyStyles(sourceChild, targetChild);
-        }
-      });
-    };
-
-    applyStyles(node, clone);
-    return clone;
-  };
-
-  const tableToJpegBytes = async (tableElement: HTMLElement) => {
-    const rect = tableElement.getBoundingClientRect();
-    const width = Math.max(Math.ceil(rect.width), 1);
-    const height = Math.max(Math.ceil(rect.height), 1);
-    const scale = Math.min(window.devicePixelRatio || 1, 2);
-
-    const clonedNode = cloneWithComputedStyles(tableElement);
-    clonedNode.setAttribute('xmlns', 'http://www.w3.org/1999/xhtml');
-
-    const serializer = new XMLSerializer();
-    const markup = serializer.serializeToString(clonedNode);
-    const svgMarkup = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}"><foreignObject width="100%" height="100%">${markup}</foreignObject></svg>`;
-    const svgBlob = new Blob([svgMarkup], { type: 'image/svg+xml;charset=utf-8' });
-    const svgUrl = URL.createObjectURL(svgBlob);
-
-    try {
-      const image = await new Promise<HTMLImageElement>((resolve, reject) => {
-        const img = new Image();
-        img.onload = () => resolve(img);
-        img.onerror = () => reject(new Error('Failed to convert overview table into an image.'));
-        img.src = svgUrl;
-      });
-
-      const canvas = document.createElement('canvas');
-      canvas.width = Math.max(Math.floor(width * scale), 1);
-      canvas.height = Math.max(Math.floor(height * scale), 1);
-      const context = canvas.getContext('2d');
-      if (!context) {
-        throw new Error('Canvas rendering is not available in this browser.');
-      }
-
-      context.setTransform(scale, 0, 0, scale, 0, 0);
-      context.fillStyle = '#ffffff';
-      context.fillRect(0, 0, width, height);
-      context.drawImage(image, 0, 0, width, height);
-
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
-      const byteString = atob(dataUrl.split(',')[1]);
-      const bytes = Uint8Array.from(byteString, (char) => char.charCodeAt(0));
-      return { bytes, width: canvas.width, height: canvas.height };
-    } finally {
-      URL.revokeObjectURL(svgUrl);
-    }
-  };
-
-  const buildPdfWithImage = (headerLines: string[], imageBytes: Uint8Array, imageWidth: number, imageHeight: number) => {
+  const buildSimplePdf = (pages: string[][]) => {
     const encoder = new TextEncoder();
-    const asBytes = (value: string) => encoder.encode(value);
-    const concat = (chunks: Uint8Array[]) => {
-      const size = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
-      const output = new Uint8Array(size);
-      let offset = 0;
-      chunks.forEach((chunk) => {
-        output.set(chunk, offset);
-        offset += chunk.length;
-      });
-      return output;
-    };
+    const objects: string[] = [];
+    const pageObjectIds: number[] = [];
+    const fontObjectId = 3;
+    let nextObjectId = 4;
 
-    const pageWidth = 595;
-    const pageHeight = 842;
-    const margin = 40;
-    const lineHeight = 14;
-    const headerTopY = pageHeight - margin;
-    const imageMaxWidth = pageWidth - margin * 2;
-    const availableImageHeight = pageHeight - margin * 2 - headerLines.length * lineHeight - 20;
-    const ratio = Math.min(imageMaxWidth / imageWidth, availableImageHeight / imageHeight, 1);
-    const drawWidth = Math.max(1, Math.floor(imageWidth * ratio));
-    const drawHeight = Math.max(1, Math.floor(imageHeight * ratio));
+    objects[1] = '<< /Type /Catalog /Pages 2 0 R >>';
+    objects[fontObjectId] = '<< /Type /Font /Subtype /Type1 /BaseFont /Courier >>';
 
-    const headerCommands = headerLines
-      .map((line, idx) => {
-        const y = headerTopY - idx * lineHeight;
-        return `BT /F1 11 Tf ${margin} ${y} Td (${sanitizePdfText(line)}) Tj ET`;
-      })
-      .join('\n');
+    pages.forEach((lines) => {
+      const pageObjectId = nextObjectId;
+      const contentObjectId = nextObjectId + 1;
+      nextObjectId += 2;
 
-    const contentStream = `${headerCommands}\nq\n${drawWidth} 0 0 ${drawHeight} ${margin} ${margin} cm\n/Im1 Do\nQ\n`;
-
-    const objects: Record<number, Uint8Array> = {
-      1: asBytes('<< /Type /Catalog /Pages 2 0 R >>'),
-      2: asBytes('<< /Type /Pages /Kids [3 0 R] /Count 1 >>'),
-      3: asBytes('<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R >> /XObject << /Im1 5 0 R >> >> /Contents 6 0 R >>'),
-      4: asBytes('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>'),
-      5: concat([
-        asBytes(`<< /Type /XObject /Subtype /Image /Width ${imageWidth} /Height ${imageHeight} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${imageBytes.length} >>\nstream\n`),
-        imageBytes,
-        asBytes('\nendstream'),
-      ]),
-      6: asBytes(`<< /Length ${asBytes(contentStream).length} >>\nstream\n${contentStream}endstream`),
-    };
-
-    const objectIds = Object.keys(objects).map(Number).sort((a, b) => a - b);
-    const parts: Uint8Array[] = [];
-    const offsets: number[] = [0];
-    let cursor = 0;
-
-    const header = asBytes('%PDF-1.4\n');
-    parts.push(header);
-    cursor += header.length;
-
-    objectIds.forEach((id) => {
-      offsets[id] = cursor;
-      const open = asBytes(`${id} 0 obj\n`);
-      const close = asBytes('\nendobj\n');
-      parts.push(open, objects[id], close);
-      cursor += open.length + objects[id].length + close.length;
+      const stream = `BT\n/F1 9 Tf\n12 TL\n40 802 Td\n${lines.map((line) => `(${sanitizePdfText(line)}) Tj`).join('\nT*\n')}\nET`;
+      const streamLength = encoder.encode(stream).length;
+      objects[contentObjectId] = `<< /Length ${streamLength} >>\nstream\n${stream}\nendstream`;
+      objects[pageObjectId] = `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 ${fontObjectId} 0 R >> >> /Contents ${contentObjectId} 0 R >>`;
+      pageObjectIds.push(pageObjectId);
     });
 
-    const size = Math.max(...objectIds) + 1;
-    const xrefOffset = cursor;
-    let xref = `xref\n0 ${size}\n0000000000 65535 f \n`;
-    for (let i = 1; i < size; i += 1) {
-      xref += `${String(offsets[i] ?? 0).padStart(10, '0')} 00000 n \n`;
-    }
-    const trailer = `trailer\n<< /Size ${size} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`;
-    parts.push(asBytes(xref), asBytes(trailer));
+    objects[2] = `<< /Type /Pages /Kids [${pageObjectIds.map((id) => `${id} 0 R`).join(' ')}] /Count ${pageObjectIds.length} >>`;
 
-    return new Blob(parts as unknown as BlobPart[], { type: 'application/pdf' });
+    let pdf = '%PDF-1.4\n';
+    const offsets: number[] = [0];
+    for (let i = 1; i < objects.length; i += 1) {
+      if (!objects[i]) continue;
+      offsets[i] = pdf.length;
+      pdf += `${i} 0 obj\n${objects[i]}\nendobj\n`;
+    }
+
+    const xrefOffset = pdf.length;
+    pdf += `xref\n0 ${objects.length}\n`;
+    pdf += '0000000000 65535 f \n';
+    for (let i = 1; i < objects.length; i += 1) {
+      const offset = offsets[i] ?? 0;
+      pdf += `${String(offset).padStart(10, '0')} 00000 n \n`;
+    }
+    pdf += `trailer\n<< /Size ${objects.length} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`;
+
+    return new Blob([encoder.encode(pdf)], { type: 'application/pdf' });
   };
 
-  const exportOverviewToPdf = async () => {
+  const exportOverviewToPdf = () => {
     if (selection !== 'overview') return;
-
-    const tableElement = overviewTableRef.current;
-    if (!tableElement) return;
-
-    try {
 
     const axisLabels = selectedOverviewAxes
       .map((axisLevel) => axes.find((axis) => String(axis.level_number) === axisLevel)?.label ?? axisLevel)
       .join(' > ');
 
-    const { bytes, width, height } = await tableToJpegBytes(tableElement);
+    const headers = ['Row Labels', 'Total', 'Remaining', 'OK', 'KO', 'NT', '% Scope'];
+    const rows = overviewStats.map((stat) => {
+      const marker = stat.scopeValidated > scopeHighlightThreshold ? ' ▲' : '';
+      return [
+        `${'  '.repeat(stat.depth)}${stat.label}`,
+        String(stat.total),
+        String(stat.remaining),
+        String(stat.ok),
+        String(stat.ko),
+        String(stat.nt),
+        `${stat.scopeValidated.toFixed(0)}%${marker}`,
+      ];
+    });
 
-    const headerLines = [
-      `Project: ${runMeta?.project_name ?? '-'}`,
-      `Version: ${runMeta?.release_version ?? '-'}`,
-      `Run: #${runMeta?.run_number ?? runId} (id ${runId})`,
-      `Axes: ${axisLabels || 'None selected'}`,
-      `Scope threshold: ${scopeHighlightThreshold}%`,
+    rows.push([
+      'Grand Total',
+      String(grandTotalStats.total),
+      String(grandTotalStats.remaining),
+      String(grandTotalStats.ok),
+      String(grandTotalStats.ko),
+      String(grandTotalStats.nt),
+      `${grandTotalStats.scopeValidated.toFixed(0)}%${grandTotalStats.scopeValidated > scopeHighlightThreshold ? ' ▲' : ''}`,
+    ]);
+
+    const tableData = [headers, ...rows];
+    const columnWidths = headers.map((header, idx) => Math.max(header.length, ...tableData.map((row) => row[idx]?.length ?? 0)));
+    const toLine = (row: string[]) => row.map((cell, idx) => cell.padEnd(columnWidths[idx], ' ')).join(' | ');
+
+    const maxLinesPerPage = 58;
+    const allLines = [
+      'TNR Overview Export',
+      `Run ID: ${runId}`,
       `Generated: ${new Date().toLocaleString()}`,
+      `Axes: ${axisLabels || 'None selected'}`,
+      `Scope highlight threshold: ${scopeHighlightThreshold}% ("▲" means highlighted)`,
+      '',
+      toLine(headers),
+      columnWidths.map((width) => '-'.repeat(width)).join('-+-'),
+      ...rows.map((row) => toLine(row)),
     ];
 
-    const blob = buildPdfWithImage(headerLines, bytes, width, height);
+    const pages: string[][] = [];
+    for (let index = 0; index < allLines.length; index += maxLinesPerPage) {
+      pages.push(allLines.slice(index, index + maxLinesPerPage));
+    }
+
+    const blob = buildSimplePdf(pages);
     const link = document.createElement('a');
     const dateSlug = new Date().toISOString().slice(0, 10);
-    const runLabel = runMeta?.run_number ?? runId;
-    const href = URL.createObjectURL(blob);
-    link.href = href;
-    link.download = `overview-run-${runLabel}-${dateSlug}.pdf`;
+    link.href = URL.createObjectURL(blob);
+    link.download = `overview-run-${runId}-${dateSlug}.pdf`;
     link.click();
-    window.setTimeout(() => URL.revokeObjectURL(href), 1000);
-    } catch (error) {
-      console.error(error);
-      window.alert('Impossible de générer le PDF. Réessayez après avoir affiché le tableau Overview.');
-    }
+    URL.revokeObjectURL(link.href);
   };
 
   const setStatus = async (testRunCaseId: number, status: RunCase['status'], comment = '') => {
@@ -414,8 +335,7 @@ export default function RunTabView({ runId }: Props) {
               <Button
                 variant="contained"
                 startIcon={<PictureAsPdf />}
-                onClick={() => void exportOverviewToPdf()}
-                disabled={selectedOverviewAxes.length === 0}
+                onClick={exportOverviewToPdf}
               >
                 Export to PDF
               </Button>
