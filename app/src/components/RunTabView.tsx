@@ -38,6 +38,7 @@ export default function RunTabView({ runId }: Props) {
   const [selection, setSelection] = useState<string>('overview');
   const [statusFilter, setStatusFilter] = useState<'ALL' | RunCase['status']>('ALL');
   const [overviewAxisSelections, setOverviewAxisSelections] = useState<string[]>([]);
+  const [scopeHighlightThreshold, setScopeHighlightThreshold] = useState<number>(80);
 
   const load = async () => {
     const data = await apiFetch<{ axes: TestBookAxis[]; results: RunCase[] }>(API_ROUTES.runs.get(runId));
@@ -140,6 +141,17 @@ export default function RunTabView({ runId }: Props) {
 
   const grandTotalStats = useMemo(() => summarizeCases(cases), [cases]);
 
+  const getScopeCellSx = (scopeValidated: number) => ({
+    fontWeight: 700,
+    ...(scopeValidated > scopeHighlightThreshold
+      ? {
+          bgcolor: 'success.light',
+          color: 'success.dark',
+          borderRadius: 1,
+        }
+      : {}),
+  });
+
   const setStatus = async (testRunCaseId: number, status: RunCase['status'], comment = '') => {
     await apiFetch(API_ROUTES.runs.setResult, { method: 'POST', bodyJson: { test_run_case_id: testRunCaseId, status, comment } });
     await load();
@@ -188,6 +200,15 @@ export default function RunTabView({ runId }: Props) {
             <Chip label={`To Do ${cases.filter((c) => c.status === 'NOT_RUN').length}`} />
           </Stack>
           <Stack direction="row" spacing={1} alignItems="center">
+            <TextField
+              size="small"
+              type="number"
+              label="Seuil Scope (%)"
+              value={scopeHighlightThreshold}
+              onChange={(e) => setScopeHighlightThreshold(Math.max(0, Math.min(100, Number(e.target.value) || 0)))}
+              inputProps={{ min: 0, max: 100, step: 1 }}
+              sx={{ width: 150 }}
+            />
             <TextField
               size="small"
               select
@@ -273,7 +294,7 @@ export default function RunTabView({ runId }: Props) {
                         <TableCell align="right">{stat.ok}</TableCell>
                         <TableCell align="right">{stat.ko}</TableCell>
                         <TableCell align="right">{stat.nt}</TableCell>
-                        <TableCell align="right" sx={{ fontWeight: 700 }}>{`${stat.scopeValidated.toFixed(0)}%`}</TableCell>
+                        <TableCell align="right" sx={getScopeCellSx(stat.scopeValidated)}>{`${stat.scopeValidated.toFixed(0)}%`}</TableCell>
                       </TableRow>
                     ))}
                     <TableRow>
@@ -283,7 +304,7 @@ export default function RunTabView({ runId }: Props) {
                       <TableCell align="right" sx={{ fontWeight: 700 }}>{grandTotalStats.ok}</TableCell>
                       <TableCell align="right" sx={{ fontWeight: 700 }}>{grandTotalStats.ko}</TableCell>
                       <TableCell align="right" sx={{ fontWeight: 700 }}>{grandTotalStats.nt}</TableCell>
-                      <TableCell align="right" sx={{ fontWeight: 700 }}>{`${grandTotalStats.scopeValidated.toFixed(0)}%`}</TableCell>
+                      <TableCell align="right" sx={getScopeCellSx(grandTotalStats.scopeValidated)}>{`${grandTotalStats.scopeValidated.toFixed(0)}%`}</TableCell>
                     </TableRow>
                   </TableBody>
                 </Table>
