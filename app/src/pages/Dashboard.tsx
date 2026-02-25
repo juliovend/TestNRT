@@ -1,4 +1,4 @@
-import { Add, Delete, Edit, MenuBook, PlayArrow, Refresh, Save } from '@mui/icons-material';
+import { Add, Delete, GroupAdd, MenuBook, PlayArrow, Refresh, Save } from '@mui/icons-material';
 import {
   Alert,
   Box,
@@ -30,7 +30,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { API_ROUTES, apiFetch } from '../api/client';
 import RunTabView from '../components/RunTabView';
 import { getRunScopeHighlightThreshold, getScopeHighlightSx } from '../utils/runScope';
-import type { Project, Release, RunItem, TestBookAxis, TestBookCase } from '../types';
+import type { Project, Release, TestBookAxis, TestBookCase } from '../types';
 
 type TabItem = { id: string; label: string; kind: 'home' | 'testbook' | 'run' };
 type TestBookSection = 'parameters' | 'cases';
@@ -65,13 +65,16 @@ export default function Dashboard() {
   const [tabs, setTabs] = useState<TabItem[]>([{ id: 'home', label: 'My Projects', kind: 'home' }]);
   const [activeTab, setActiveTab] = useState('home');
 
-  const [projectModal, setProjectModal] = useState<{ open: boolean; project?: Project }>({ open: false });
+  const [projectModal, setProjectModal] = useState<{ open: boolean }>({ open: false });
+  const [assignUsersModal, setAssignUsersModal] = useState<{ open: boolean; project?: Project }>({ open: false });
   const [projectName, setProjectName] = useState('');
   const [assignedEmails, setAssignedEmails] = useState('');
   const [releaseModal, setReleaseModal] = useState<{ open: boolean; projectId?: number; release?: Release }>({ open: false });
   const [versionName, setVersionName] = useState('');
-  const [runModal, setRunModal] = useState<{ open: boolean; projectId?: number; releaseId?: number; run?: RunItem }>({ open: false });
-  const [runNumber, setRunNumber] = useState('');
+  const [editingProjectId, setEditingProjectId] = useState<number | null>(null);
+  const [editingProjectName, setEditingProjectName] = useState('');
+  const [editingReleaseId, setEditingReleaseId] = useState<number | null>(null);
+  const [editingVersionName, setEditingVersionName] = useState('');
 
   const [tbSectionByTab, setTbSectionByTab] = useState<Record<string, TestBookSection>>({});
   const [tbAxes, setTbAxes] = useState<TestBookAxis[]>([]);
@@ -127,15 +130,22 @@ export default function Dashboard() {
       .split(',')
       .map((e) => e.trim())
       .filter(Boolean);
-    if (projectModal.project) {
-      await apiFetch(API_ROUTES.projects.update, {
-        method: 'POST',
-        bodyJson: { project_id: projectModal.project.id, name: projectName, assigned_emails: emails },
-      });
-    } else {
-      await apiFetch(API_ROUTES.projects.create, { method: 'POST', bodyJson: { name: projectName, assigned_emails: emails } });
-    }
+    await apiFetch(API_ROUTES.projects.create, { method: 'POST', bodyJson: { name: projectName, assigned_emails: emails } });
     setProjectModal({ open: false });
+    await load();
+  };
+
+  const submitAssignedUsers = async () => {
+    if (!assignUsersModal.project) return;
+    const emails = assignedEmails
+      .split(',')
+      .map((e) => e.trim())
+      .filter(Boolean);
+    await apiFetch(API_ROUTES.projects.update, {
+      method: 'POST',
+      bodyJson: { project_id: assignUsersModal.project.id, name: assignUsersModal.project.name, assigned_emails: emails },
+    });
+    setAssignUsersModal({ open: false });
     await load();
   };
 
@@ -156,20 +166,40 @@ export default function Dashboard() {
     await load();
   };
 
-  const submitRun = async () => {
-    if (!runModal.projectId || !runModal.releaseId) return;
-    if (runModal.run) {
-      await apiFetch(API_ROUTES.runs.update, {
-        method: 'POST',
-        bodyJson: { run_id: runModal.run.id, run_number: Number(runNumber) },
-      });
-    } else {
-      await apiFetch(API_ROUTES.runs.create, {
-        method: 'POST',
-        bodyJson: { project_id: runModal.projectId, release_id: runModal.releaseId, run_number: Number(runNumber) },
-      });
+  const submitRun = async (projectId: number, releaseId: number, runs: Release['runs']) => {
+    const nextRun = Math.max(0, ...(runs ?? []).map((run) => run.run_number)) + 1;
+    await apiFetch(API_ROUTES.runs.create, {
+      method: 'POST',
+      bodyJson: { project_id: projectId, release_id: releaseId, run_number: nextRun },
+    });
+    await load();
+  };
+
+  const saveProjectName = async (project: Project) => {
+    const trimmed = editingProjectName.trim();
+    if (!trimmed || trimmed === project.name) {
+      setEditingProjectId(null);
+      return;
     }
-    setRunModal({ open: false });
+    await apiFetch(API_ROUTES.projects.update, {
+      method: 'POST',
+      bodyJson: { project_id: project.id, name: trimmed, assigned_emails: project.assigned_emails },
+    });
+    setEditingProjectId(null);
+    await load();
+  };
+
+  const saveReleaseVersion = async (release: Release) => {
+    const trimmed = editingVersionName.trim();
+    if (!trimmed || trimmed === release.version) {
+      setEditingReleaseId(null);
+      return;
+    }
+    await apiFetch(API_ROUTES.releases.update, {
+      method: 'POST',
+      bodyJson: { release_id: release.id, version: trimmed },
+    });
+    setEditingReleaseId(null);
     await load();
   };
 
@@ -277,11 +307,44 @@ export default function Dashboard() {
             </Stack>
           </Stack>
 
-          {projects.map((project) => (
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: { xs: '1fr', md: 'repeat(2, minmax(0, 1fr))', xl: 'repeat(3, minmax(0, 1fr))' },
+              gap: 2,
+              alignItems: 'start',
+            }}
+          >
+            {projects.map((project) => (
             <Paper key={project.id} sx={{ p: 2 }}>
               <Stack spacing={1.25}>
                 <Stack direction="row" justifyContent="space-between" alignItems="center">
-                  <Typography variant="h6">{project.name}</Typography>
+                  {editingProjectId === project.id ? (
+                    <TextField
+                      size="small"
+                      value={editingProjectName}
+                      autoFocus
+                      onChange={(e) => setEditingProjectName(e.target.value)}
+                      onBlur={() => void saveProjectName(project)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          void saveProjectName(project);
+                        }
+                      }}
+                    />
+                  ) : (
+                    <Typography
+                      variant="h6"
+                      sx={{ cursor: 'text' }}
+                      onClick={() => {
+                        setEditingProjectId(project.id);
+                        setEditingProjectName(project.name);
+                      }}
+                    >
+                      {project.name}
+                    </Typography>
+                  )}
                   <Stack direction="row" spacing={1}>
                     <IconButton
                       onClick={() => {
@@ -296,12 +359,11 @@ export default function Dashboard() {
                     </IconButton>
                     <IconButton
                       onClick={() => {
-                        setProjectModal({ open: true, project });
-                        setProjectName(project.name);
+                        setAssignUsersModal({ open: true, project });
                         setAssignedEmails(project.assigned_emails.join(', '));
                       }}
                     >
-                      <Edit />
+                      <GroupAdd />
                     </IconButton>
                     <IconButton color="error" onClick={() => void deleteProject(project)}>
                       <Delete />
@@ -313,21 +375,36 @@ export default function Dashboard() {
                   <Paper key={release.id} variant="outlined" sx={{ p: 1.5 }}>
                     <Stack direction="row" justifyContent="space-between" alignItems="center">
                       <Stack direction="row" spacing={1} alignItems="center">
-                        <Chip size="small" label={release.version} />
+                        {editingReleaseId === release.id ? (
+                          <TextField
+                            size="small"
+                            value={editingVersionName}
+                            autoFocus
+                            onChange={(e) => setEditingVersionName(e.target.value)}
+                            onBlur={() => void saveReleaseVersion(release)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                void saveReleaseVersion(release);
+                              }
+                            }}
+                          />
+                        ) : (
+                          <Chip
+                            size="small"
+                            label={release.version}
+                            sx={{ cursor: 'text' }}
+                            onClick={() => {
+                              setEditingReleaseId(release.id);
+                              setEditingVersionName(release.version);
+                            }}
+                          />
+                        )}
                         <Typography variant="body2" color="text.secondary">
                           {(release.runs ?? []).length} runs
                         </Typography>
                       </Stack>
                       <Stack direction="row" spacing={1}>
-                        <IconButton
-                          size="small"
-                          onClick={() => {
-                            setReleaseModal({ open: true, projectId: project.id, release });
-                            setVersionName(release.version);
-                          }}
-                        >
-                          <Edit fontSize="small" />
-                        </IconButton>
                         <IconButton
                           size="small"
                           color="error"
@@ -356,15 +433,6 @@ export default function Dashboard() {
                             <Typography variant="body2" sx={getScopeHighlightSx(run.scope_validated, runScopeThreshold)}>{`${run.scope_validated.toFixed(0)}% Scope Validated`}</Typography>
                           </Stack>
                           <Stack direction="row">
-                            <IconButton
-                              size="small"
-                              onClick={() => {
-                                setRunModal({ open: true, projectId: project.id, releaseId: release.id, run });
-                                setRunNumber(String(run.run_number));
-                              }}
-                            >
-                              <Edit fontSize="small" />
-                            </IconButton>
                             <IconButton
                               size="small"
                               onClick={() => {
@@ -400,10 +468,7 @@ export default function Dashboard() {
                       <Button
                         size="small"
                         startIcon={<Add />}
-                        onClick={() => {
-                          setRunModal({ open: true, projectId: project.id, releaseId: release.id });
-                          setRunNumber('');
-                        }}
+                        onClick={() => void submitRun(project.id, release.id, release.runs)}
                       >
                         New Run
                       </Button>
@@ -423,7 +488,8 @@ export default function Dashboard() {
                 </Button>
               </Stack>
             </Paper>
-          ))}
+            ))}
+          </Box>
         </Stack>
       );
     }
@@ -786,7 +852,6 @@ export default function Dashboard() {
     load,
     projectName,
     projects,
-    runNumber,
     tabs,
     tbAxes,
     tbCases,
@@ -828,7 +893,7 @@ export default function Dashboard() {
       {body}
 
       <Dialog open={projectModal.open} onClose={() => setProjectModal({ open: false })}>
-        <DialogTitle>{projectModal.project ? 'Edit Project' : 'New Project'}</DialogTitle>
+        <DialogTitle>New Project</DialogTitle>
         <DialogContent>
           <Stack sx={{ mt: 1 }} spacing={1}>
             <TextField label="Project name" value={projectName} onChange={(e) => setProjectName(e.target.value)} />
@@ -847,6 +912,24 @@ export default function Dashboard() {
         </DialogActions>
       </Dialog>
 
+      <Dialog open={assignUsersModal.open} onClose={() => setAssignUsersModal({ open: false })}>
+        <DialogTitle>Assign Users</DialogTitle>
+        <DialogContent>
+          <TextField
+            sx={{ mt: 1, minWidth: 420 }}
+            label="Assigned emails (comma separated)"
+            value={assignedEmails}
+            onChange={(e) => setAssignedEmails(e.target.value)}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setAssignUsersModal({ open: false })}>Cancel</Button>
+          <Button onClick={() => void submitAssignedUsers()} variant="contained">
+            Save
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       <Dialog open={releaseModal.open} onClose={() => setReleaseModal({ open: false })}>
         <DialogTitle>{releaseModal.release ? 'Edit Version' : 'New Version'}</DialogTitle>
         <DialogContent>
@@ -860,24 +943,6 @@ export default function Dashboard() {
         </DialogActions>
       </Dialog>
 
-      <Dialog open={runModal.open} onClose={() => setRunModal({ open: false })}>
-        <DialogTitle>{runModal.run ? 'Edit Run' : 'New Run'}</DialogTitle>
-        <DialogContent>
-          <TextField
-            sx={{ mt: 1 }}
-            label="Run number"
-            type="number"
-            value={runNumber}
-            onChange={(e) => setRunNumber(e.target.value)}
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setRunModal({ open: false })}>Cancel</Button>
-          <Button onClick={() => void submitRun()} variant="contained">
-            Save
-          </Button>
-        </DialogActions>
-      </Dialog>
     </Stack>
   );
 }
