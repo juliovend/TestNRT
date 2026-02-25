@@ -62,8 +62,9 @@ export default function RunTabView({ runId }: Props) {
           return clauses.every(([level, value]) => row.analytical_values[level] === value);
         });
 
-    if (statusFilter === 'ALL') return analyticalFiltered;
-    return analyticalFiltered.filter((row) => row.status === statusFilter);
+    const activeStatusFilter = selection === 'overview' ? 'ALL' : statusFilter;
+    if (activeStatusFilter === 'ALL') return analyticalFiltered;
+    return analyticalFiltered.filter((row) => row.status === activeStatusFilter);
   }, [cases, selection, statusFilter]);
 
   const buildNodes = (levelIndex: number, parentFilters: string[], source: RunCase[]): { key: string; label: string; depth: number }[] => {
@@ -209,29 +210,33 @@ export default function RunTabView({ runId }: Props) {
               inputProps={{ min: 0, max: 100, step: 1 }}
               sx={{ width: 150 }}
             />
-            <TextField
-              size="small"
-              select
-              label="Statut"
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value as 'ALL' | RunCase['status'])}
-              sx={{ minWidth: 160 }}
-            >
-              <MenuItem value="ALL">Tous</MenuItem>
-              <MenuItem value="PASS">PASS</MenuItem>
-              <MenuItem value="FAIL">FAIL</MenuItem>
-              <MenuItem value="BLOCKED">BLOCKED</MenuItem>
-              <MenuItem value="NOT_RUN">NOT_RUN</MenuItem>
-            </TextField>
-            <Button
-              startIcon={<Add />}
-              onClick={async () => {
-                await apiFetch(API_ROUTES.runs.casesCreate, { method: 'POST', bodyJson: { run_id: runId, insert_index: cases.length + 1 } });
-                await load();
-              }}
-            >
-              Ajouter cas
-            </Button>
+            {selection !== 'overview' && (
+              <>
+                <TextField
+                  size="small"
+                  select
+                  label="Statut"
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value as 'ALL' | RunCase['status'])}
+                  sx={{ minWidth: 160 }}
+                >
+                  <MenuItem value="ALL">Tous</MenuItem>
+                  <MenuItem value="PASS">PASS</MenuItem>
+                  <MenuItem value="FAIL">FAIL</MenuItem>
+                  <MenuItem value="BLOCKED">BLOCKED</MenuItem>
+                  <MenuItem value="NOT_RUN">NOT_RUN</MenuItem>
+                </TextField>
+                <Button
+                  startIcon={<Add />}
+                  onClick={async () => {
+                    await apiFetch(API_ROUTES.runs.casesCreate, { method: 'POST', bodyJson: { run_id: runId, insert_index: cases.length + 1 } });
+                    await load();
+                  }}
+                >
+                  Ajouter cas
+                </Button>
+              </>
+            )}
           </Stack>
         </Stack>
 
