@@ -44,6 +44,7 @@ foreach ($projects as &$project) {
                     'skipped' => (int) $row['skipped'],
                     'not_run' => (int) $row['not_run'],
                 ],
+                'scope_validated' => (int) $row['total'] > 0 ? ((int) $row['pass'] / (int) $row['total']) * 100 : 0,
             ];
         }, $runs);
     }

@@ -29,6 +29,7 @@ import {
 import { useEffect, useMemo, useState } from 'react';
 import { API_ROUTES, apiFetch } from '../api/client';
 import RunTabView from '../components/RunTabView';
+import { getRunScopeHighlightThreshold, getScopeHighlightSx } from '../utils/runScope';
 import type { Project, Release, RunItem, TestBookAxis, TestBookCase } from '../types';
 
 type TabItem = { id: string; label: string; kind: 'home' | 'testbook' | 'run' };
@@ -346,9 +347,14 @@ export default function Dashboard() {
                     </Stack>
 
                     <Stack sx={{ mt: 1 }} spacing={0.5}>
-                      {(release.runs ?? []).map((run) => (
-                        <Stack key={run.id} direction="row" justifyContent="space-between" alignItems="center">
-                          <Typography variant="body2">Run #{run.run_number}</Typography>
+                      {(release.runs ?? []).map((run) => {
+                        const runScopeThreshold = getRunScopeHighlightThreshold(run.id);
+                        return (
+                        <Stack key={run.id} direction="row" justifyContent="space-between" alignItems="center" sx={{ gap: 1 }}>
+                          <Stack direction="row" spacing={1.2} alignItems="center">
+                            <Typography variant="body2">Run #{run.run_number}</Typography>
+                            <Typography variant="body2" sx={getScopeHighlightSx(run.scope_validated, runScopeThreshold)}>{`${run.scope_validated.toFixed(0)}% Scope Validated`}</Typography>
+                          </Stack>
                           <Stack direction="row">
                             <IconButton
                               size="small"
@@ -388,7 +394,8 @@ export default function Dashboard() {
                             </IconButton>
                           </Stack>
                         </Stack>
-                      ))}
+                      );
+                      })}
 
                       <Button
                         size="small"

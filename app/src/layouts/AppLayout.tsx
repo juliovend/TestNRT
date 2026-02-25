@@ -40,7 +40,7 @@ export default function AppLayout({ user, onLogout }: Props) {
               ✨
             </Avatar>
             <Typography variant="h6" sx={{ fontWeight: 700 }}>
-              NRT Manager
+              Test Assistant
             </Typography>
             <AutoAwesomeRoundedIcon sx={{ color: 'secondary.main' }} />
           </Stack>
