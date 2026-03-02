@@ -24,6 +24,7 @@ import {
   TableHead,
   TableRow,
   TextField,
+  Tooltip,
   Typography,
 } from '@mui/material';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -486,25 +487,29 @@ export default function Dashboard() {
                     </Stack>
                   )}
                   <Stack direction="row" spacing={1}>
-                    <IconButton
-                      onClick={() => {
-                        const tabId = `tb-${project.id}`;
-                        if (!tabs.some((t) => t.id === tabId)) {
-                          setTabs((old) => [...old, { id: tabId, label: `${project.name} - Test Book`, kind: 'testbook' }]);
-                        }
-                        setActiveTab(tabId);
-                      }}
-                    >
-                      <MenuBook />
-                    </IconButton>
-                    <IconButton
-                      onClick={() => {
-                        setAssignUsersModal({ open: true, project });
-                        setAssignedEmails(project.assigned_emails.join(', '));
-                      }}
-                    >
-                      <GroupAdd />
-                    </IconButton>
+                    <Tooltip title="Manage Test Book">
+                      <IconButton
+                        onClick={() => {
+                          const tabId = `tb-${project.id}`;
+                          if (!tabs.some((t) => t.id === tabId)) {
+                            setTabs((old) => [...old, { id: tabId, label: `${project.name} - Test Book`, kind: 'testbook' }]);
+                          }
+                          setActiveTab(tabId);
+                        }}
+                      >
+                        <MenuBook />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Assign users">
+                      <IconButton
+                        onClick={() => {
+                          setAssignUsersModal({ open: true, project });
+                          setAssignedEmails(project.assigned_emails.join(', '));
+                        }}
+                      >
+                        <GroupAdd />
+                      </IconButton>
+                    </Tooltip>
                     <IconButton color="error" onClick={() => void deleteProject(project)}>
                       <Delete />
                     </IconButton>
