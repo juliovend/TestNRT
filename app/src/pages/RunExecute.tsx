@@ -12,12 +12,13 @@ import {
   Paper,
   Select,
   Stack,
+  TablePagination,
   TextField,
   ToggleButton,
   ToggleButtonGroup,
   Typography,
 } from '@mui/material';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { API_ROUTES, apiFetch } from '../api/client';
 
 type RunStatus = 'PASS' | 'FAIL' | 'BLOCKED' | 'SKIPPED' | 'NOT_RUN';
@@ -52,6 +53,8 @@ export default function RunExecute() {
   const [comment, setComment] = useState('');
   const [details, setDetails] = useState<RunDetails | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [resultsPage, setResultsPage] = useState(0);
+  const [resultsRowsPerPage, setResultsRowsPerPage] = useState(50);
 
   const selectNextNotRun = (results: RunResult[]) => {
     const nextCase = results.find((result) => result.status === 'NOT_RUN') ?? results[0] ?? null;
@@ -74,10 +77,19 @@ export default function RunExecute() {
     window.open(API_ROUTES.runs.exportCsv(runId), '_blank', 'noopener,noreferrer');
   };
 
-  const selectedResult = useMemo(
-    () => details?.results.find((result) => result.test_run_case_id === selectedCaseId) ?? null,
-    [details, selectedCaseId],
-  );
+  const resultById = useMemo(() => {
+    if (!details) {
+      return new Map<number, RunResult>();
+    }
+    return new Map(details.results.map((result) => [result.test_run_case_id, result]));
+  }, [details]);
+
+  const selectedResult = useMemo(() => {
+    if (!selectedCaseId) {
+      return null;
+    }
+    return resultById.get(selectedCaseId) ?? null;
+  }, [resultById, selectedCaseId]);
 
   const filteredResults = useMemo(() => {
     if (!details) {
@@ -88,6 +100,22 @@ export default function RunExecute() {
     }
     return details.results.filter((result) => result.status === statusFilter);
   }, [details, statusFilter]);
+
+  const paginatedResults = useMemo(() => {
+    const start = resultsPage * resultsRowsPerPage;
+    return filteredResults.slice(start, start + resultsRowsPerPage);
+  }, [filteredResults, resultsPage, resultsRowsPerPage]);
+
+  useEffect(() => {
+    setResultsPage(0);
+  }, [statusFilter, runId]);
+
+  useEffect(() => {
+    const maxPage = Math.max(0, Math.ceil(filteredResults.length / resultsRowsPerPage) - 1);
+    if (resultsPage > maxPage) {
+      setResultsPage(maxPage);
+    }
+  }, [filteredResults.length, resultsPage, resultsRowsPerPage]);
 
   const saveResult = async (status: RunStatus) => {
     if (!selectedCaseId) {
@@ -163,7 +191,7 @@ export default function RunExecute() {
             </FormControl>
 
             <List dense sx={{ maxHeight: 360, overflow: 'auto', border: '1px solid #eee', borderRadius: 1 }}>
-              {filteredResults.map((result) => (
+              {paginatedResults.map((result) => (
                 <ListItemButton
                   key={result.test_run_case_id}
                   selected={selectedCaseId === result.test_run_case_id}
@@ -179,6 +207,18 @@ export default function RunExecute() {
                 </ListItemButton>
               ))}
             </List>
+            <TablePagination
+              component="div"
+              count={filteredResults.length}
+              page={resultsPage}
+              onPageChange={(_, page) => setResultsPage(page)}
+              rowsPerPage={resultsRowsPerPage}
+              onRowsPerPageChange={(event) => {
+                setResultsRowsPerPage(Number(event.target.value));
+                setResultsPage(0);
+              }}
+              rowsPerPageOptions={[25, 50, 100, 250]}
+            />
           </Stack>
         </Paper>
 
