@@ -48,6 +48,17 @@ export const API_ROUTES = {
     delete: apiRoute('runs.delete'),
     list: (releaseId: string | number) => apiRoute('runs.list', { release_id: releaseId }),
     get: (runId: string | number) => apiRoute('runs.get', { run_id: runId }),
+    getPaginated: (params: {
+      runId: string | number;
+      page: number;
+      perPage: number;
+      status: 'ALL' | 'NOT_RUN' | 'PASS' | 'FAIL' | 'BLOCKED' | 'SKIPPED';
+    }) => apiRoute('runs.get', {
+      run_id: params.runId,
+      page: params.page,
+      per_page: params.perPage,
+      status: params.status,
+    }),
     exportCsv: (runId: string | number) => apiRoute('runs.export_csv', { run_id: runId }),
     setResult: apiRoute('runs.set_result'),
     casesCreate: apiRoute('runs.cases_create'),

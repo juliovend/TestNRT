@@ -42,6 +42,12 @@ interface RunDetails {
     not_run: number;
   };
   results: RunResult[];
+  pagination?: {
+    page: number;
+    per_page: number;
+    total: number;
+    status: StatusFilter;
+  };
 }
 
 const STATUS_OPTIONS: RunStatus[] = ['PASS', 'FAIL', 'BLOCKED', 'SKIPPED'];
@@ -55,6 +61,7 @@ export default function RunExecute() {
   const [error, setError] = useState<string | null>(null);
   const [resultsPage, setResultsPage] = useState(0);
   const [resultsRowsPerPage, setResultsRowsPerPage] = useState(50);
+  const [isLoading, setIsLoading] = useState(false);
 
   const selectNextNotRun = (results: RunResult[]) => {
     const nextCase = results.find((result) => result.status === 'NOT_RUN') ?? results[0] ?? null;
@@ -62,14 +69,35 @@ export default function RunExecute() {
     setComment(nextCase?.comment ?? '');
   };
 
-  const load = async () => {
+  const load = async (options?: { preserveSelection?: boolean }) => {
     setError(null);
+    setIsLoading(true);
     try {
-      const data = await apiFetch<RunDetails>(API_ROUTES.runs.get(runId));
+      const data = await apiFetch<RunDetails>(API_ROUTES.runs.getPaginated({
+        runId,
+        page: resultsPage,
+        perPage: resultsRowsPerPage,
+        status: statusFilter,
+      }));
       setDetails(data);
-      selectNextNotRun(data.results);
+      if (options?.preserveSelection) {
+        if (selectedCaseId) {
+          const stillVisible = data.results.find((result) => result.test_run_case_id === selectedCaseId);
+          if (stillVisible) {
+            setComment(stillVisible.comment ?? '');
+          } else {
+            selectNextNotRun(data.results);
+          }
+        } else {
+          selectNextNotRun(data.results);
+        }
+      } else {
+        selectNextNotRun(data.results);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Unknown error');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -91,31 +119,15 @@ export default function RunExecute() {
     return resultById.get(selectedCaseId) ?? null;
   }, [resultById, selectedCaseId]);
 
-  const filteredResults = useMemo(() => {
-    if (!details) {
-      return [];
-    }
-    if (statusFilter === 'ALL') {
-      return details.results;
-    }
-    return details.results.filter((result) => result.status === statusFilter);
-  }, [details, statusFilter]);
-
-  const paginatedResults = useMemo(() => {
-    const start = resultsPage * resultsRowsPerPage;
-    return filteredResults.slice(start, start + resultsRowsPerPage);
-  }, [filteredResults, resultsPage, resultsRowsPerPage]);
+  const filteredTotal = details?.pagination?.total ?? details?.results.length ?? 0;
 
   useEffect(() => {
     setResultsPage(0);
-  }, [statusFilter, runId]);
+  }, [runId, statusFilter]);
 
   useEffect(() => {
-    const maxPage = Math.max(0, Math.ceil(filteredResults.length / resultsRowsPerPage) - 1);
-    if (resultsPage > maxPage) {
-      setResultsPage(maxPage);
-    }
-  }, [filteredResults.length, resultsPage, resultsRowsPerPage]);
+    void load({ preserveSelection: true });
+  }, [runId, statusFilter, resultsPage, resultsRowsPerPage]);
 
   const saveResult = async (status: RunStatus) => {
     if (!selectedCaseId) {
@@ -127,9 +139,7 @@ export default function RunExecute() {
       bodyJson: { test_run_case_id: selectedCaseId, status, comment },
     });
 
-    const refreshed = await apiFetch<RunDetails>(API_ROUTES.runs.get(runId));
-    setDetails(refreshed);
-    selectNextNotRun(refreshed.results);
+    await load({ preserveSelection: false });
   };
 
   const total = details?.summary.total ?? 0;
@@ -144,8 +154,15 @@ export default function RunExecute() {
       <Stack direction="row" spacing={2}>
         <TextField label="Run ID" value={runId} onChange={(e) => setRunId(e.target.value)} />
         <Button variant="outlined" onClick={exportCsv}>Export CSV</Button>
-        <Button variant="contained" onClick={load}>
-          Load
+        <Button
+          variant="contained"
+          onClick={() => {
+            setResultsPage(0);
+            void load();
+          }}
+          disabled={isLoading}
+        >
+          {isLoading ? 'Loading...' : 'Load'}
         </Button>
       </Stack>
 
@@ -191,7 +208,7 @@ export default function RunExecute() {
             </FormControl>
 
             <List dense sx={{ maxHeight: 360, overflow: 'auto', border: '1px solid #eee', borderRadius: 1 }}>
-              {paginatedResults.map((result) => (
+              {details?.results.map((result) => (
                 <ListItemButton
                   key={result.test_run_case_id}
                   selected={selectedCaseId === result.test_run_case_id}
@@ -209,7 +226,7 @@ export default function RunExecute() {
             </List>
             <TablePagination
               component="div"
-              count={filteredResults.length}
+              count={filteredTotal}
               page={resultsPage}
               onPageChange={(_, page) => setResultsPage(page)}
               rowsPerPage={resultsRowsPerPage}
