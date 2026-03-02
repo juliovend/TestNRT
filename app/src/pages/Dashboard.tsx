@@ -29,7 +29,7 @@ import {
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { API_ROUTES, apiFetch } from '../api/client';
 import RunTabView from '../components/RunTabView';
-import { getRunScopeHighlightThreshold, getScopeHighlightSx } from '../utils/runScope';
+import { getRunScopeHighlightThreshold, getScopeProgressColor } from '../utils/runScope';
 import type { Project, Release, TestBookAxis, TestBookCase } from '../types';
 
 type TabItem = { id: string; label: string; kind: 'home' | 'testbook' | 'run' };
@@ -71,6 +71,51 @@ const parseAttachment = (entry: string) => {
     stored: entry.slice(separatorIndex + 2),
     isLegacy: false,
   };
+};
+
+
+const ScopeProgressBadge = ({ value, threshold }: { value: number; threshold: number }) => {
+  const safeValue = Math.max(0, Math.min(100, value));
+
+  return (
+    <Box
+      sx={{
+        position: 'relative',
+        width: 160,
+        height: 24,
+        borderRadius: 1,
+        overflow: 'hidden',
+        bgcolor: 'grey.200',
+      }}
+    >
+      <Box
+        sx={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          bottom: 0,
+          width: `${safeValue}%`,
+          bgcolor: getScopeProgressColor(safeValue, threshold),
+          transition: 'width 250ms ease, background-color 250ms ease',
+        }}
+      />
+      <Box
+        sx={{
+          position: 'absolute',
+          inset: 0,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontWeight: 700,
+          fontSize: 12,
+          color: 'common.white',
+          textShadow: '0 1px 2px rgba(0,0,0,0.55)',
+        }}
+      >
+        {`${safeValue.toFixed(0)}% Scope Validated`}
+      </Box>
+    </Box>
+  );
 };
 
 export default function Dashboard() {
@@ -526,7 +571,7 @@ export default function Dashboard() {
                           <Stack direction="row" spacing={1.2} alignItems="center">
                             <Typography variant="body2">Run #{run.run_number}</Typography>
                             <Typography variant="body2" color="text.secondary">{`${run.summary.total} test cases`}</Typography>
-                            <Typography variant="body2" sx={getScopeHighlightSx(run.scope_validated, runScopeThreshold)}>{`${run.scope_validated.toFixed(0)}% Scope Validated`}</Typography>
+                            <ScopeProgressBadge value={run.scope_validated} threshold={runScopeThreshold} />
                           </Stack>
                           <Stack direction="row">
                             <IconButton
