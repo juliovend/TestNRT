@@ -21,14 +21,9 @@ export const computeScopeValidated = (total: number, passed: number): number => 
   total > 0 ? (passed / total) * 100 : 0
 );
 
-export const getScopeHighlightSx = (scopeValidated: number, threshold: number) => ({
-  fontWeight: 700,
-  ...(scopeValidated > threshold
-    ? {
-        bgcolor: 'success.light',
-        color: 'success.dark',
-        borderRadius: 1,
-      }
-    : {}),
-});
-
+export const getScopeProgressColor = (scopeValidated: number, threshold: number): string => {
+  const safeThreshold = Math.max(1, Math.min(100, threshold));
+  const normalized = Math.max(0, Math.min(1, scopeValidated / safeThreshold));
+  const hue = normalized * 120;
+  return `hsl(${hue}, 75%, 45%)`;
+};

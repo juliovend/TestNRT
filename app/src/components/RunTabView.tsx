@@ -3,7 +3,7 @@ import { Box, Button, Chip, List, ListItemButton, ListItemText, MenuItem, Paper,
 import { useEffect, useMemo, useState } from 'react';
 import { API_ROUTES, apiFetch } from '../api/client';
 import type { TestBookAxis } from '../types';
-import { computeScopeValidated, getRunScopeHighlightThreshold, getScopeHighlightSx, setRunScopeHighlightThreshold } from '../utils/runScope';
+import { computeScopeValidated, getRunScopeHighlightThreshold, getScopeProgressColor, setRunScopeHighlightThreshold } from '../utils/runScope';
 
 type RunCase = {
   test_run_case_id: number;
@@ -52,6 +52,51 @@ const parseAttachment = (entry: string) => {
     stored: entry.slice(separatorIndex + 2),
     isLegacy: false,
   };
+};
+
+
+const ScopeProgressCell = ({ value, threshold }: { value: number; threshold: number }) => {
+  const safeValue = Math.max(0, Math.min(100, value));
+
+  return (
+    <Box
+      sx={{
+        position: 'relative',
+        height: 24,
+        borderRadius: 1,
+        overflow: 'hidden',
+        bgcolor: 'grey.200',
+        minWidth: 140,
+      }}
+    >
+      <Box
+        sx={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          bottom: 0,
+          width: `${safeValue}%`,
+          bgcolor: getScopeProgressColor(safeValue, threshold),
+          transition: 'width 250ms ease, background-color 250ms ease',
+        }}
+      />
+      <Box
+        sx={{
+          position: 'absolute',
+          inset: 0,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontWeight: 700,
+          fontSize: 12,
+          color: 'common.white',
+          textShadow: '0 1px 2px rgba(0,0,0,0.55)',
+        }}
+      >
+        {`${safeValue.toFixed(0)}%`}
+      </Box>
+    </Box>
+  );
 };
 
 export default function RunTabView({ runId }: Props) {
@@ -459,7 +504,7 @@ export default function RunTabView({ runId }: Props) {
                         <TableCell align="right">{stat.ok}</TableCell>
                         <TableCell align="right">{stat.ko}</TableCell>
                         <TableCell align="right">{stat.nt}</TableCell>
-                        <TableCell align="right" sx={getScopeHighlightSx(stat.scopeValidated, scopeHighlightThreshold)}>{`${stat.scopeValidated.toFixed(0)}%`}</TableCell>
+                        <TableCell align="right"><ScopeProgressCell value={stat.scopeValidated} threshold={scopeHighlightThreshold} /></TableCell>
                       </TableRow>
                     ))}
                     <TableRow>
@@ -469,7 +514,7 @@ export default function RunTabView({ runId }: Props) {
                       <TableCell align="right" sx={{ fontWeight: 700 }}>{grandTotalStats.ok}</TableCell>
                       <TableCell align="right" sx={{ fontWeight: 700 }}>{grandTotalStats.ko}</TableCell>
                       <TableCell align="right" sx={{ fontWeight: 700 }}>{grandTotalStats.nt}</TableCell>
-                      <TableCell align="right" sx={getScopeHighlightSx(grandTotalStats.scopeValidated, scopeHighlightThreshold)}>{`${grandTotalStats.scopeValidated.toFixed(0)}%`}</TableCell>
+                      <TableCell align="right"><ScopeProgressCell value={grandTotalStats.scopeValidated} threshold={scopeHighlightThreshold} /></TableCell>
                     </TableRow>
                   </TableBody>
                 </Table>
