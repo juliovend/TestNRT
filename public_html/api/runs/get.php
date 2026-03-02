@@ -41,26 +41,80 @@ foreach ($axesRows as $row) {
 }
 $axes = array_values($axes);
 
-$resultsStmt = db()->prepare('SELECT trc.id AS test_run_case_id, trc.test_case_id, trc.case_number, trc.steps, trc.expected_result, trc.analytical_values_json, trc.attachments_json, trr.status, trr.comment, trr.tested_at, u.name AS tester_name, u.email AS tester_email
+$statusFilter = strtoupper(trim((string) ($_GET['status'] ?? 'ALL')));
+$allowedStatuses = ['ALL', 'NOT_RUN', 'PASS', 'FAIL', 'BLOCKED', 'SKIPPED'];
+if (!in_array($statusFilter, $allowedStatuses, true)) {
+    $statusFilter = 'ALL';
+}
+
+$page = max(0, (int) ($_GET['page'] ?? 0));
+$perPage = max(1, min(250, (int) ($_GET['per_page'] ?? 0)));
+$isPaginatedRequest = isset($_GET['page']) || isset($_GET['per_page']) || isset($_GET['status']);
+
+$summaryStmt = db()->prepare('SELECT trr.status, COUNT(*) AS c
+FROM test_run_cases trc
+INNER JOIN test_run_results trr ON trr.test_run_case_id = trc.id
+WHERE trc.test_run_id = ?
+GROUP BY trr.status');
+$summaryStmt->execute([$runId]);
+$summaryRows = $summaryStmt->fetchAll();
+$summary = ['total' => 0, 'pass' => 0, 'fail' => 0, 'blocked' => 0, 'skipped' => 0, 'not_run' => 0];
+foreach ($summaryRows as $summaryRow) {
+    $status = strtolower((string) $summaryRow['status']);
+    $count = (int) $summaryRow['c'];
+    $summary['total'] += $count;
+    if (array_key_exists($status, $summary)) {
+        $summary[$status] = $count;
+    }
+}
+
+$whereStatusSql = '';
+$params = [$runId];
+if ($statusFilter !== 'ALL') {
+    $whereStatusSql = ' AND trr.status = ?';
+    $params[] = $statusFilter;
+}
+
+$countStmt = db()->prepare('SELECT COUNT(*) FROM test_run_cases trc
+INNER JOIN test_run_results trr ON trr.test_run_case_id = trc.id
+WHERE trc.test_run_id = ?' . $whereStatusSql);
+$countStmt->execute($params);
+$filteredTotal = (int) $countStmt->fetchColumn();
+
+$resultsSql = 'SELECT trc.id AS test_run_case_id, trc.test_case_id, trc.case_number, trc.steps, trc.expected_result, trc.analytical_values_json, trc.attachments_json, trr.status, trr.comment, trr.tested_at, u.name AS tester_name, u.email AS tester_email
 FROM test_run_cases trc
 INNER JOIN test_run_results trr ON trr.test_run_case_id = trc.id
 LEFT JOIN users u ON u.id = trr.tester_id
-WHERE trc.test_run_id = ?
-ORDER BY trc.case_number ASC, trc.id ASC');
-$resultsStmt->execute([$runId]);
+WHERE trc.test_run_id = ?' . $whereStatusSql . '
+ORDER BY trc.case_number ASC, trc.id ASC';
+if ($isPaginatedRequest) {
+    $resultsSql .= '
+LIMIT ? OFFSET ?';
+}
+$resultsStmt = db()->prepare($resultsSql);
+$resultsParams = $params;
+if ($isPaginatedRequest) {
+    $resultsParams[] = $perPage;
+    $resultsParams[] = $page * $perPage;
+}
+$resultsStmt->execute($resultsParams);
 $results = $resultsStmt->fetchAll();
 
-$summary = ['total' => 0, 'pass' => 0, 'fail' => 0, 'blocked' => 0, 'not_run' => 0];
 foreach ($results as &$row) {
     $row['analytical_values'] = $row['analytical_values_json'] ? json_decode((string) $row['analytical_values_json'], true) : new stdClass();
     $row['attachments'] = $row['attachments_json'] ? json_decode((string) $row['attachments_json'], true) : [];
     unset($row['analytical_values_json'], $row['attachments_json']);
-    $summary['total']++;
-    $status = strtolower((string) $row['status']);
-    if (isset($summary[$status])) {
-        $summary[$status]++;
-    }
 }
 unset($row);
 
-json_response(['run' => $run, 'axes' => $axes, 'summary' => $summary, 'results' => $results]);
+$response = ['run' => $run, 'axes' => $axes, 'summary' => $summary, 'results' => $results];
+if ($isPaginatedRequest) {
+    $response['pagination'] = [
+        'page' => $page,
+        'per_page' => $perPage,
+        'total' => $filteredTotal,
+        'status' => $statusFilter,
+    ];
+}
+
+json_response($response);
