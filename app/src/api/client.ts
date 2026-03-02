@@ -38,6 +38,7 @@ export const API_ROUTES = {
     casesCreate: apiRoute('testbook.cases_create'),
     casesUpdate: apiRoute('testbook.cases_update'),
     casesDelete: apiRoute('testbook.cases_delete'),
+    importExcel: apiRoute('testbook.import_excel'),
     attachmentsUpload: apiRoute('testbook.attachments_upload'),
     attachmentsOpen: (projectId: string | number, caseId: string | number, file: string) => apiRoute('testbook.attachments_open', { project_id: projectId, case_id: caseId, file }),
   },

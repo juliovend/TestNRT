@@ -1,4 +1,4 @@
-import { Add, AttachFile, CloudUpload, Delete, DragIndicator, GroupAdd, MenuBook, PlayArrow, Refresh, Save } from '@mui/icons-material';
+import { Add, AttachFile, CloudUpload, Delete, DragIndicator, GroupAdd, MenuBook, PlayArrow, Refresh, Save, UploadFile } from '@mui/icons-material';
 import {
   Alert,
   Box,
@@ -122,6 +122,7 @@ const ScopeProgressBadge = ({ value, threshold }: { value: number; threshold: nu
 export default function Dashboard() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [tabs, setTabs] = useState<TabItem[]>([{ id: 'home', label: 'My Projects', kind: 'home' }]);
   const [activeTab, setActiveTab] = useState('home');
 
@@ -147,6 +148,7 @@ export default function Dashboard() {
   const [tbUploadingCaseId, setTbUploadingCaseId] = useState<number | null>(null);
   const [caseFilters, setCaseFilters] = useState<CaseFilters>(defaultFilters());
   const fileInputRefs = useRef<Record<number, HTMLInputElement | null>>({});
+  const importInputRef = useRef<HTMLInputElement | null>(null);
 
   const currentTab = tabs.find((t) => t.id === activeTab);
   const currentProjectId = currentTab?.kind === 'testbook' ? Number(currentTab.id.replace('tb-', '')) : null;
@@ -154,6 +156,7 @@ export default function Dashboard() {
   const load = async () => {
     try {
       setError(null);
+      setNotice(null);
       const data = await apiFetch<{ projects: Project[] }>(API_ROUTES.dashboard.home);
       setProjects(data.projects);
     } catch (err) {
@@ -169,6 +172,7 @@ export default function Dashboard() {
   const loadTestBook = async (projectId: number) => {
     setTbLoading(true);
     try {
+      setError(null);
       const [params, cases] = await Promise.all([
         apiFetch<{ axes: TestBookAxis[] }>(API_ROUTES.testbook.paramsGet(projectId)),
         apiFetch<{ test_cases: TestBookCase[] }>(API_ROUTES.testbook.casesList(projectId)),
@@ -187,6 +191,35 @@ export default function Dashboard() {
     if (!currentProjectId) return;
     void loadTestBook(currentProjectId);
   }, [currentProjectId]);
+
+  const importTestBookFromExcel = async (file: File) => {
+    if (!currentProjectId) return;
+
+    setError(null);
+    setNotice(null);
+
+    const payload = new FormData();
+    payload.append('project_id', String(currentProjectId));
+    payload.append('file', file);
+
+    try {
+      const response = await fetch(API_ROUTES.testbook.importExcel, {
+        method: 'POST',
+        credentials: 'include',
+        body: payload,
+      });
+
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(body?.message || 'Import Excel impossible');
+      }
+
+      await loadTestBook(currentProjectId);
+      setNotice(`${body?.created_count ?? 0} test case(s) créé(s) via import Excel.`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Import Excel impossible');
+    }
+  };
 
   const submitProject = async () => {
     const emails = assignedEmails
@@ -772,6 +805,25 @@ export default function Dashboard() {
                 <Stack direction="row" justifyContent="space-between" alignItems="center">
                   <Typography variant="h6">Cas de tests</Typography>
                   <Stack direction="row" spacing={1}>
+                    <input
+                      ref={importInputRef}
+                      type="file"
+                      hidden
+                      accept=".xlsx"
+                      onChange={(event) => {
+                        const file = event.target.files?.[0];
+                        if (file) {
+                          void importTestBookFromExcel(file);
+                        }
+                        event.target.value = '';
+                      }}
+                    />
+                    <Button
+                      startIcon={<UploadFile />}
+                      onClick={() => importInputRef.current?.click()}
+                    >
+                      Import test book from Excel
+                    </Button>
                     <Button
                       startIcon={<Add />}
                       onClick={async () => {
@@ -1064,6 +1116,7 @@ export default function Dashboard() {
   return (
     <Stack spacing={2}>
       {error ? <Alert severity="error">{error}</Alert> : null}
+      {notice ? <Alert severity="success">{notice}</Alert> : null}
       <Tabs value={activeTab} onChange={(_, v) => setActiveTab(v)}>
         {tabs.map((tab) => (
           <Tab

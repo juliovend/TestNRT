@@ -27,6 +27,7 @@ $routes = [
     'testbook.cases_create' => ['method' => 'POST', 'file' => 'testbook/cases_create.php'],
     'testbook.cases_update' => ['method' => 'POST', 'file' => 'testbook/cases_update.php'],
     'testbook.cases_delete' => ['method' => 'POST', 'file' => 'testbook/cases_delete.php'],
+    'testbook.import_excel' => ['method' => 'POST', 'file' => 'testbook/import_excel.php'],
     'testbook.attachments_upload' => ['method' => 'POST', 'file' => 'testbook/attachments_upload.php'],
     'testbook.attachments_open' => ['method' => 'GET', 'file' => 'testbook/attachments_open.php'],
     'runs.create' => ['method' => 'POST', 'file' => 'runs/create.php'],
