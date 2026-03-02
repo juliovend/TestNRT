@@ -22,6 +22,7 @@ import {
   TableCell,
   TableContainer,
   TableHead,
+  TablePagination,
   TableRow,
   TextField,
   Tooltip,
@@ -147,6 +148,8 @@ export default function Dashboard() {
   const [tbCasesDirty, setTbCasesDirty] = useState(false);
   const [tbUploadingCaseId, setTbUploadingCaseId] = useState<number | null>(null);
   const [caseFilters, setCaseFilters] = useState<CaseFilters>(defaultFilters());
+  const [testBookPage, setTestBookPage] = useState(0);
+  const [testBookRowsPerPage, setTestBookRowsPerPage] = useState(50);
   const fileInputRefs = useRef<Record<number, HTMLInputElement | null>>({});
   const importInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -439,6 +442,26 @@ export default function Dashboard() {
       return matchesCase && matchesSteps && matchesExpected && matchesAttachments && matchesAxes;
     });
   }, [caseFilters, tbAxes, tbCases]);
+
+  const caseIndexById = useMemo(() => {
+    return new Map(tbCases.map((item, index) => [item.id, index]));
+  }, [tbCases]);
+
+  const paginatedCases = useMemo(() => {
+    const start = testBookPage * testBookRowsPerPage;
+    return filteredCases.slice(start, start + testBookRowsPerPage);
+  }, [filteredCases, testBookPage, testBookRowsPerPage]);
+
+  useEffect(() => {
+    setTestBookPage(0);
+  }, [caseFilters, tbAxes.length, currentProjectId]);
+
+  useEffect(() => {
+    const maxPage = Math.max(0, Math.ceil(filteredCases.length / testBookRowsPerPage) - 1);
+    if (testBookPage > maxPage) {
+      setTestBookPage(maxPage);
+    }
+  }, [filteredCases.length, testBookPage, testBookRowsPerPage]);
 
   const body = useMemo(() => {
     if (activeTab === 'home') {
@@ -918,8 +941,8 @@ export default function Dashboard() {
                       </TableRow>
                     </TableHead>
                     <TableBody>
-                      {filteredCases.map((item) => {
-                        const rowIndex = tbCases.findIndex((caseItem) => caseItem.id === item.id);
+                      {paginatedCases.map((item) => {
+                        const rowIndex = caseIndexById.get(item.id) ?? 0;
                         return (
                           <TableRow key={item.id} hover>
                             <TableCell>{item.case_number}</TableCell>
@@ -1077,6 +1100,18 @@ export default function Dashboard() {
                     </TableBody>
                   </Table>
                 </TableContainer>
+                <TablePagination
+                  component="div"
+                  count={filteredCases.length}
+                  page={testBookPage}
+                  onPageChange={(_, page) => setTestBookPage(page)}
+                  rowsPerPage={testBookRowsPerPage}
+                  onRowsPerPageChange={(event) => {
+                    setTestBookRowsPerPage(Number(event.target.value));
+                    setTestBookPage(0);
+                  }}
+                  rowsPerPageOptions={[25, 50, 100, 250]}
+                />
               </Stack>
             )}
           </Paper>
@@ -1098,6 +1133,8 @@ export default function Dashboard() {
     currentTab,
     draggingProjectId,
     filteredCases,
+    caseIndexById,
+    paginatedCases,
     load,
     projectName,
     projects,
@@ -1110,6 +1147,8 @@ export default function Dashboard() {
     tbParamsDirty,
     tbSaving,
     tbSectionByTab,
+    testBookPage,
+    testBookRowsPerPage,
     versionName,
   ]);
 
