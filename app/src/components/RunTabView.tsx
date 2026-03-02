@@ -121,7 +121,18 @@ export default function RunTabView({ runId }: Props) {
   }, [runId]);
 
   useEffect(() => {
-    setOverviewAxisSelections((old) => axes.map((_, idx) => old[idx] ?? ''));
+    setOverviewAxisSelections((old) => {
+      const defaults = axes.map((axis) => String(axis.level_number));
+      if (old.length === 0) return defaults;
+
+      const next = axes.map((axis, idx) => {
+        const selected = old[idx];
+        const axisLevel = String(axis.level_number);
+        return selected && selected === axisLevel ? selected : axisLevel;
+      });
+
+      return next;
+    });
   }, [axes]);
 
   const filteredCases = useMemo(() => {
